@@ -1,5 +1,5 @@
 git config git-ftp.scope.url "ftpes://server-url/folder"
-git config git-ftp.scope.staging.url "ftpes://your-server/your-folder/public_folder"
+git config git-ftp.scope.staging.url "ftpes://your-server:21/your-folder/public_folder"
 git config git-ftp.scope.user "name"
 git config git-ftp.scope.password 'password'
 git config git-ftp.scope.extra-args "set ftp:ssl-force true; set ftp:ssl-protect-data true; set ssl:verify-certificate no;"
