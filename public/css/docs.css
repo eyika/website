@@ -74,6 +74,10 @@ header .header-content a {
     transition: color 0.3s ease;
 }
 
+header .header-content h3 {
+    font-size: 15px;
+}
+
 /* Version dropdown */
 header select {
     margin-left: 20px;
@@ -370,14 +374,92 @@ footer {
     background-color: #444;
 }
 
+@media (min-width: 769px) {
+    /* Hamburger menu icon */
+    .hamburger-menu, aside h3 {
+        display: none;
+    }
+}
+
 /* Responsive Design for smaller screens */
 @media (max-width: 768px) {
+    /* Adjust the main layout to stack vertically */
     #main-content {
         flex-direction: column;
     }
 
+    /* Sidebar styles for mobile */
     #sidebar {
-        width: 100%;
-        height: auto;
+        position: fixed;
+        left: -100%; /* Hide sidebar initially */
+        top: 0; /* Place below the header */
+        width: 55%; /* Take a portion of the screen width */
+        max-width: 300px; /* Optional: set a max width */
+        height: calc(100vh - 70px); /* Full height minus header */
+        background: #333;
+        z-index: 1000; /* Overlay above other content */
+        transition: left 0.3s ease; /* Smooth slide-in/out */
+        box-shadow: 2px 0 5px rgba(0, 0, 0, 0.5); /* Add a shadow for better visibility */
+        overflow-y: auto; /* Enable scrolling if needed */
+    }
+
+    /* Sidebar visible state */
+    #sidebar.open {
+        left: 0; /* Slide the sidebar into view */
+    }
+
+    /* Adjust sidebar links */
+    #sidebar a {
+        font-size: 16px;
+        padding: 10px;
+    }
+
+    /* Header adjustments for mobile */
+    header {
+        justify-content: space-between;
+        padding: 10px 15px;
+    }
+
+    header div h3 {
+        display: none;
+    }
+
+    /* Hamburger menu icon */
+    .hamburger-menu {
+        display: block; /* Show on mobile */
+        font-size: 24px;
+        cursor: pointer;
+        background: none;
+        border: none;
+        color: #fff;
+    }
+
+    /* Hide the header action items initially */
+    /* .header-action-items {
+        display: none;
+    } */
+
+    /* Toggleable header action items on mobile */
+    header .show-action-items .header-action-items {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        background: #333;
+        padding: 10px;
+        position: absolute;
+        right: 15px;
+        top: 70px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+    }
+
+    aside h3 {
+        display: flex;
+        flex-direction: column;
+        font-size: 10px;
+    }
+
+    #sidebar a.powered-by {
+        font-size: 10px;
+        padding: 2px;
     }
 }

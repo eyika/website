@@ -66,6 +66,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    sidebar.classList.toggle('open');
+}
+
 // Toggle Dark/Light Mode
 function toggleDarkMode() {
     const body = document.body;
