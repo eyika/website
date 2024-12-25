@@ -1,0 +1,355 @@
+/* Define CSS variables for light and dark mode */
+:root {
+    --background-code-light: #f4f4f4; /* Light mode code block background */
+    --background-code-dark: #2d2d2d; /* Dark mode code block background */
+    --text-code-light: #333;         /* Light mode text color */
+    --text-code-dark: #f8f8f2;       /* Dark mode text color */
+
+    --background-light: #f4f4f4; /* Light mode code block background */
+    --background-dark: #2d2d2d; /* Dark mode code block background */
+    --text-light: #333;         /* Light mode text color */
+    --text-dark: #f8f8f2;       /* Dark mode text color */
+
+    --heading-color-light: #333; /* Light mode heading color */
+    --heading-color-dark: #eaeaea; /* Dark mode heading color */
+}
+
+/* Base styling for body and layout */
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: var(--background-light);
+    color: var(--text-light);
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+body.dark-mode {
+    background-color: var(--background-dark);
+    color: var(--text-dark);
+}
+
+/* Ensure the whole page fills the screen */
+#docs-container {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh; /* Ensure it takes full height of the screen */
+    overflow: hidden; /* Prevent the entire page from scrolling */
+}
+
+/* Styling for the header */
+header {
+    background: #333;
+    color: #fff;
+    padding: 10px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: fixed;
+    width: 100%;
+    top: 0;
+    left: 0;
+    z-index: 1000;
+    height: 60px; /* Fixed height for header */
+}
+
+header .header-content {
+    display: flex;
+    align-items: center;
+}
+
+/* Version dropdown */
+header select {
+    margin-left: 20px;
+    padding: 5px;
+    font-size: 16px;
+}
+
+/* Dark/Light mode toggle button */
+#mode-toggle {
+    margin-left: 20px;
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 20px;
+    cursor: pointer;
+}
+
+/* Main content section (sidebar + content area) */
+#main-content {
+    display: flex;
+    flex: 1;
+    padding-bottom: 20px; /* Space for footer */
+    overflow: hidden; /* Prevent main content from scrolling the entire page */
+    height: calc(100vh - 60px); /* Main content fills remaining height excluding header */
+}
+
+/* Sidebar styling */
+#sidebar {
+    width: 250px;
+    background: #333;
+    color: #fff;
+    padding: 15px;
+    overflow-y: auto; /* Allow the sidebar to scroll independently */
+    height: 100vh; /* Sidebar fills the height of the screen */
+    position: sticky;
+    margin-top: 70px; /* Sticky sidebar, starting from below header */
+}
+
+#sidebar a {
+    color: #fff;
+    text-decoration: none;
+    display: block;
+    padding: 8px;
+    margin: 4px 0;
+}
+
+#sidebar a:hover {
+    background: #444;
+}
+
+#sidebar ul {
+    list-style: none; /* Remove bullets or numbers */
+    margin: 0;
+    padding: 0;
+}
+
+#sidebar ul ul {
+    background-color: #3a3a3a; /* Slightly lighter than the main sidebar */
+    margin: 5px 0;
+    padding: 10px;
+    border-radius: 5px; /* Rounded edges for a cleaner look */
+}
+
+/* Main content area styling */
+main {
+    flex: 1;
+    margin-top: 60px;
+    padding: 20px;
+    overflow-y: auto; /* Allow main content to scroll independently */
+    height: 100%; /* Main content fills available height */
+    max-height: calc(100vh - 120px); /* Ensure it doesn't overflow beyond available space */
+}
+
+/* General styling for main content */
+main a {
+    color: #0073e6;
+    text-decoration: none;
+    font-weight: bold;
+    transition: color 0.3s ease;
+}
+
+main a:hover {
+    color: #005bb5;
+}
+
+main ul, main ol {
+    margin: 1em 0;
+    padding-left: 30px;
+}
+
+main ul li, main ol li {
+    margin: 1em 0;
+    padding-left: 20px;
+}
+
+main ul {
+    list-style-type: disc;
+}
+
+main ol {
+    list-style-type: decimal;
+}
+
+main table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0;
+}
+
+main table th,
+main table td {
+    border: 1px solid #ddd;
+    padding: 10px;
+    text-align: left;
+}
+
+main table th {
+    background-color: #f4f4f4;
+    font-weight: bold;
+}
+
+main h1, main h2, main h3, main h4, main h5, main h6 {
+    color: var(--heading-color-light);
+    margin-top: 20px;
+    margin-bottom: 10px;
+    font-weight: bold;
+}
+
+body.dark-mode main h1,
+body.dark-mode main h2,
+body.dark-mode main h3,
+body.dark-mode main h4,
+body.dark-mode main h5,
+body.dark-mode main h6 {
+    color: var(--heading-color-dark); /* Adjusted for dark mode */
+}
+
+main p {
+    margin: 15px 0;
+    line-height: 1.6;
+}
+
+main img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 5px;
+    margin: 10px 0;
+    display: block;
+}
+
+main button {
+    background-color: #0073e6;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    font-size: 16px;
+    cursor: pointer;
+    border-radius: 5px;
+    transition: background-color 0.3s ease;
+}
+
+main button:hover {
+    background-color: #005bb5;
+}
+
+main pre, main code {
+    font-family: 'Courier New', Courier, monospace;
+    background-color: var(--background-code-light); /* Use CSS variable */
+    color: var(--text-code-light);
+    padding: 10px;
+    border-radius: 5px;
+    overflow-x: auto;
+    display: block;
+    margin: 20px 0;
+    text-shadow: none; /* Avoid blurry text due to shadow */
+    -webkit-font-smoothing: antialiased; /* Improve text rendering */
+    -moz-osx-font-smoothing: grayscale;
+    transition: background-color 0.3s ease, color 0.3s ease; /* Smooth transitions */
+}
+
+/* Dark Mode */
+body.dark-mode main pre, 
+body.dark-mode main code {
+    background-color: var(--background-code-dark);
+    color: var(--text-code-dark);
+    border-color: #444; /* Optional darker border in dark mode */
+}
+
+main pre {
+    line-height: 1.5;
+    border: 1px solid #ddd;
+    background-color: var(--background-code-light); /* Use CSS variable */
+}
+
+main code {
+    display: inline;
+    padding: 2px 5px;
+    font-size: 90%;
+    background-color: var(--background-code-light); /* Use CSS variable */
+}
+
+.open_grepper_editor {
+    display: none !important; /* Hide the Grepper icon */
+}
+
+/* Markdown-generated blockquote */
+main blockquote {
+    border-left: 4px solid #0073e6;
+    padding: 10px 20px;
+    margin: 20px 0;
+    color: #555;
+    background-color: #f9f9f9;
+    border-radius: 5px;
+}
+
+.copy-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: #0073e6;
+    color: white;
+    border: none;
+    border-radius: 3px;
+    padding: 5px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    display: none; /* Initially hidden */
+}
+
+pre:hover .copy-btn {
+    display: block; /* Show on hover */
+}
+
+/* Footer styling */
+footer {
+    background: #333;
+    color: #fff;
+    padding: 5px;
+    text-align: center;
+    position: fixed;
+    width: 100%;
+    bottom: 0;
+    left: 0;
+    height: 30px; /* Fixed footer height */
+    z-index: 1000;
+}
+
+/* Initially, the collapsible sections are hidden */
+.collapsible {
+    max-height: 0; /* Initially collapse the section */
+    overflow: hidden; /* Hide any content overflowing when collapsed */
+    padding-left: 20px;
+    transition: max-height 1.3s ease, padding 0.3s ease; /* Smooth transition for height and padding */
+}
+
+/* When expanded, the collapsible section is visible */
+.collapsible:not(.collapsed) {
+    max-height: 1000px; /* Large enough value to ensure it expands fully */
+    padding-left: 20px; /* Optionally adjust padding during expansion */
+}
+
+.pagination {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 50px;
+}
+
+.pagination .btn {
+    padding: 10px 20px;
+    background-color: #333;
+    color: #fff;
+    text-decoration: none;
+    border-radius: 5px;
+}
+
+.pagination .btn:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
+.pagination .btn:hover {
+    background-color: #444;
+}
+
+/* Responsive Design for smaller screens */
+@media (max-width: 768px) {
+    #main-content {
+        flex-direction: column;
+    }
+
+    #sidebar {
+        width: 100%;
+        height: auto;
+    }
+}

@@ -1,0 +1,10 @@
+git config git-ftp.scope.url "ftpes://server-url/folder"
+git config git-ftp.scope.staging.url "ftpes://your-server/your-folder/public_folder"
+git config git-ftp.scope.user "name"
+git config git-ftp.scope.password 'password'
+git config git-ftp.scope.extra-args "set ftp:ssl-force true; set ftp:ssl-protect-data true; set ssl:verify-certificate no;"
+git config git-ftp.staging.passive false
+git config git-ftp.staging.insecure 0
+
+git ftp init -b dev --scope staging
+git ftp push -b your-branch-name --scope atomdocs

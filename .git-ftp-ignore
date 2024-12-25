@@ -1,0 +1,14 @@
+.gitignore
+.git-ftp-ignore
+.git-ftp-include
+.gitlab-ci.yml
+.env
+
+*/.gitignore      # ignore files in sub directories
+*/.gitkeep
+.github/*
+
+composer.lock
+package.lock
+vendor/
+node_modules
