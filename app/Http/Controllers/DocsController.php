@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Helpers\CustomParsedown;
 use Eyika\Atom\Framework\Http\Request;
 use Eyika\Atom\Framework\Support\Arr;
-use Eyika\Atom\Framework\Support\Database\DB;
 
 class DocsController extends Controller
 {
