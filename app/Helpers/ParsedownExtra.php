@@ -21,7 +21,7 @@ use Exception;
 
 class ParsedownExtra extends Parsedown
 {
-    # ~
+    # ~ 
 
     const version = '0.8.0';
 
