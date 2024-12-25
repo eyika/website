@@ -2,6 +2,8 @@
 
 namespace App\Helpers;
 
+use App\Helpers\ParsedownExtra;
+
 class CustomParsedown extends ParsedownExtra
 {
     protected function blockFencedCodeComplete($Block)
