@@ -19,17 +19,20 @@
     <div id="docs-container">
         <header>
             <div class="header-content">
-                <h1>Atom Documentation</h1>
+                <h1><a href="/">Atom Documentation</a></h1>
+                <h3>(Powered by <a href="https://github.com/eyika">Framework</a> and <a href="https://parsedown.org/">Parsdown</a>)</h3>
 
                 <!-- Version Dropdown -->
-                <select id="version-dropdown" onchange="window.location.href=this.value;">
-                    @foreach ($versions ?? [] as $_version)
-                        <option value="/docs/{{ $_version }}/{{ $page }}" {{ $version === $_version ? 'selected' : '' }}>{{ \Eyika\Atom\Framework\Support\Str::pascal($_version) }}</option>
-                    @endforeach
-                </select>
+                 <div class="header-action-items">
+                    <select id="version-dropdown" onchange="window.location.href=this.value;">
+                        @foreach ($versions ?? [] as $_version)
+                            <option value="/docs/{{ $_version }}/{{ $page }}" {{ $version === $_version ? 'selected' : '' }}>{{ \Eyika\Atom\Framework\Support\Str::pascal($_version) }}</option>
+                        @endforeach
+                    </select>
 
-                <!-- Dark/Light Mode Toggle -->
-                <button id="mode-toggle" onclick="toggleDarkMode()">🌙</button>
+                    <!-- Dark/Light Mode Toggle -->
+                    <button id="mode-toggle" onclick="toggleDarkMode()">🌙</button>
+                 </div>
             </div>
         </header>
 

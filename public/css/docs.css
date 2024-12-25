@@ -44,19 +44,34 @@ header {
     color: #fff;
     padding: 10px 20px;
     display: flex;
-    justify-content: space-between;
+    justify-content: space-between; /* Distributes content between left and right edges */
     align-items: center;
     position: fixed;
     width: 100%;
     top: 0;
     left: 0;
     z-index: 1000;
-    height: 60px; /* Fixed height for header */
+    height: 70px; /* Fixed height for header */
+    box-sizing: border-box; /* Ensures padding is included in the width */
 }
 
 header .header-content {
     display: flex;
     align-items: center;
+    flex: 1; /* Expands to push action items to the right */
+    overflow: hidden; /* Prevents content overflow */
+}
+
+header .header-content h1 {
+    margin-right: 20px;
+    white-space: nowrap; /* Prevents text from wrapping */
+}
+
+header .header-content a {
+    color: #0073e6;
+    text-decoration: none;
+    font-weight: bold;
+    transition: color 0.3s ease;
 }
 
 /* Version dropdown */
@@ -65,6 +80,18 @@ header select {
     padding: 5px;
     font-size: 16px;
 }
+
+.header-action-items {
+    display: flex;
+    gap: 15px; /* Adds spacing between items */
+    align-items: center; /* Vertically centers items */
+    justify-content: flex-end; /* Aligns items to the right */
+    margin-left: auto; /* Pushes the items to the right */
+    max-width: 100%; /* Ensures it doesn't exceed the header's width */
+    overflow: hidden; /* Hides overflowing content */
+    box-sizing: border-box; /* Includes padding and border in the width */
+}
+
 
 /* Dark/Light mode toggle button */
 #mode-toggle {
