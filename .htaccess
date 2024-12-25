@@ -2,6 +2,7 @@
     <IfModule mod_negotiation.c>
         Options -MultiViews -Indexes
     </IfModule>
+    AddType application/x-httpd-php84 .php
 
     RewriteEngine On
     
