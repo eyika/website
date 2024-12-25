@@ -8,7 +8,13 @@ use Eyika\Atom\Framework\Support\Arr;
 
 class DocsController extends Controller
 {
-    public function generatePage(Request $request, $version = 'beta', $page1 = 'index', $page2 = '') {
+    public function generatePage(Request $request, $resource = 'docs', $version = 'beta', $page1 = 'index', $page2 = '') {
+        logger()->info('got here ******');
+        if ($resource !== 'docs') {
+            $page2 = $version == 'beta' ? '' : $version;
+            $version = 'beta';
+            $page1 = $resource;
+        }
         $_page2 = empty($page2) ? "" : "/$page2";
         $filePath = base_path("app/docs/$version/$page1{$_page2}.md");
 

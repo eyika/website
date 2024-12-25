@@ -30,7 +30,7 @@ To get started with Atom Framework, follow these steps:
 1. [Install Atom Framework](getting-started#installation)
 2. [Learn About the Routing System](routing)
 3. [Explore Middleware](middleware)
-4. [Understand the Service Container](advanced/service-container)
+4. [Understand the Database Features](database/index)
 
 ---
 
