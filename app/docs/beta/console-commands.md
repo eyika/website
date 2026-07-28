@@ -10,7 +10,7 @@ The `artisan` file in your project root is the console entry point. Invoke it wi
 php artisan <command> [arguments] [--options]
 ```
 
-The binary loads Composer's autoloader, boots the application from `bootstrap/app.php`, resolves the `ConsoleKernel`, and dispatches the first argument as the command name — everything after it is passed to the command as arguments. Running `php artisan` with no command falls back to a built-in inspirational quote.
+The binary loads Composer's autoloader, boots the application from `bootstrap/app.php`, resolves the `ConsoleKernel`, and dispatches the first argument as the command name — everything after it is passed to the command as arguments. Running `php artisan` with no command dispatches the default command name `random-quote`; if your application registers a command by that name (see [Registering your own commands](#9-registering-your-own-commands)) it runs, otherwise artisan reports `Command 'random-quote' not found`.
 
 ```bash
 php artisan migrate
@@ -426,7 +426,7 @@ use App\Jobs\ProcessPayment;
 ProcessPayment::dispatch()->delay(60)->onQueue('default')->run();
 ```
 
-See [Queues & Jobs](queue) for the full dispatch API (`delay()`, `priority()`, `onQueue()`, `bury()`, `fail()`, `delete()`).
+See [Queues & Jobs](queue) for the full dispatch chain (`delay()`, `priority()`, `onQueue()`, `run()`) and the in-job controls a `handle()` uses to manage retries (`bury()`, `fail()`, `delete()`).
 
 ---
 
@@ -516,10 +516,12 @@ You can also register lightweight **closure commands** in `routes/console.php` u
 use Eyika\Atom\Framework\Foundation\Console\Artisan;
 use Eyika\Atom\Framework\Support\Inspiring;
 
-Artisan::command('inspire', function () {
-    $this->comment(Inspiring::quote());
+Artisan::command('random-quote', function () {
+    $this->info(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 ```
+
+> Naming the closure command `random-quote` makes it the default that runs when you invoke `php artisan` with no arguments. Command output methods are `$this->info()/error()/warn()/warning()/notice()/debug()` (there is no `comment()`); console output is emitted without a log-line prefix, and inline `<fg=…>`/`<options=…>` formatter tags are translated to ANSI by the console colorizer.
 
 The `Kernel` in `app/Console/Kernel.php` (extending the framework `ConsoleKernel`) is where an application can override command loading and define its `schedule()`.
 
