@@ -85,6 +85,20 @@ php artisan migrate --seed
 
 ### Rolling Back Migrations
 
+To roll back the most recent batch of migrations:
+```bash
+php artisan migrate:rollback
+
+# Roll back a number of batches
+php artisan migrate:rollback --step=2
+
+# Roll back a specific batch
+php artisan migrate:rollback --batch=3
+
+# Preview the SQL without running it
+php artisan migrate:rollback --pretend
+```
+
 To roll every migration back:
 ```bash
 php artisan migrate:reset
@@ -185,6 +199,7 @@ php artisan db:seed --class=UsersTableSeeder
 |-------------------------------------|-------------------------------------------------------|
 | `php artisan make:migration`        | Create a new migration file.                          |
 | `php artisan migrate`               | Run all pending migrations (`--seed` to also seed).   |
+| `php artisan migrate:rollback`      | Roll back the last batch (`--step`, `--batch`, `--pretend`). |
 | `php artisan migrate:status`        | Check the status of migrations.                       |
 | `php artisan migrate:reset`         | Roll back all migrations.                             |
 | `php artisan migrate:refresh`       | Reset and re-run all migrations (`--step`, `--seed`). |
