@@ -15,9 +15,9 @@
 ### 5. **How do I install this framework?**
    You can install the framework via Composer. To get started, run the following command:
    ```
-   composer create-project vendor-name/framework-name your-project-name
+   composer create-project eyika/atom my-app dev-main
    ```
-   This will install the framework and set up the basic folder structure.
+   This will install the framework and set up the basic folder structure. See the [Getting Started](getting-started#installation) guide for the full setup flow (`.env`, `key:generate`, serving the app).
 
 ### 6. **Can I use this framework for a production application?**
    Yes, Although this framework is still at **beta** stage, it is designed for production-ready applications and currently there are currently two production apps powered by Atom <a href="https://backtestfx.com" target="_blank">Backtestfx</a> and <a href="https://sendmani.com" target="_blank">Sendmani</a>. However, it’s recommended to perform thorough testing and review the available features before deploying your application to ensure it meets your needs.
@@ -27,20 +27,21 @@
 
 ### 8. **What are some key features of this framework?**
    Some of the core features include:
-   - **Routing System:** A robust routing mechanism that supports parameterized and named routes.
-   - **Service Container:** A powerful container for dependency injection and service management.
-   - **Event System:** An event-driven architecture for handling custom events and listeners.
-   - **Testing Tools:** Integrated support for testing the application’s features.
-   - **Caching Mechanism:** Simple yet powerful caching support for faster response times.
+   - **App-Owned Routing:** Route maps + matchers (declared in your `RouteServiceProvider`) that support parameterized and named routes.
+   - **Service Container:** A powerful container for dependency injection and service management (bind/singleton/scoped/instance, tagging, aliasing).
+   - **Event System:** An event-driven architecture with string/object events, wildcard listeners, and model events + observers.
+   - **Collections:** Query results come back as fluent `Collection`s (map/filter/pluck/groupBy/…), with lazy cursors for large datasets.
+   - **Testing Tools:** Built-in integration testing that boots a real app and dispatches fabricated requests through the full pipeline.
+   - **Caching Mechanism:** PSR-6 caching with array, file, database, redis, apc, memcached and dynamodb drivers.
 
 ### 9. **Does this framework support testing?**
-   Yes, the framework includes built-in support for unit testing. You can easily set up and run tests using PHPUnit. For more information, check the [Testing](advanced/testing) section in the documentation.
+   Yes. Beyond plain PHPUnit unit tests, the framework ships built-in integration testing: a base test case boots a real (fixture) application and dispatches fabricated requests through the full routing/middleware pipeline (`$this->get('/x')`, `->post()`, `->postJson()`), and a database test case runs against a real database with isolated tables. Run everything with `php artisan test`. For more information, check the [Testing](advanced/testing) section in the documentation.
 
 ### 10. **Is there built-in security?**
    Yes, security is a key consideration of this framework. We provide features such as CSRF protection, encryption, and secure authentication systems. For more details, please refer to the [Security](advanced/security) section in the documentation.
 
 ### 11. **Can I use this framework with a database?**
-   Yes, the framework can be easily integrated with a database. You can define models, handle database migrations, and interact with your data through an ORM or raw SQL queries. See the [Database](database/index) section for more information on working with databases.
+   Yes, the framework can be easily integrated with a database. You can define models, handle database migrations, and interact with your data through the query builder or raw SQL queries. Query builder and model reads return fluent `Collection`s, and `->cursor()`/`->lazy()` stream large result sets. See the [Database](database/index) section for more information on working with databases.
 
 ### 12. **What are the benefits of using this framework?**
    - **Flexibility:** This framework is highly customizable, allowing you to build your application exactly how you need it.
@@ -60,7 +61,7 @@
    In addition to the documentation, we also have an active community forum where you can ask questions, share tips, and learn from other developers. You can also find tutorials and guides on the project's website. 
 
 ### 17. **How can I contact support?**
-   If you need assistance, feel free to open an issue on GitHub or contact us via email at support@framework-name.com. We strive to respond to queries promptly.
+   If you need assistance, feel free to open an issue on the <a href="https://github.com/eyika" target="_blank">GitHub organization</a>. We strive to respond to queries promptly.
 
 ---
 

@@ -5,54 +5,52 @@ Welcome to the Advanced Concepts section! This page focuses on the critical area
 ---
 
 ## 1. **Security**
-   - [Authentication and Authorization](#authentication-and-authorization)
-   - [Role-Based Access Control (RBAC)](#role-based-access-control-rbac)
-   - [Custom Authentication Guards](#custom-authentication-guards)
-   - [Policy-Based Authorization](#policy-based-authorization)
-   - [Securing Routes with Middleware](#securing-routes-with-middleware)
-   - [Password Hashing and Encryption](#password-hashing-and-encryption)
-   - [CSRF Protection and Validation](#csrf-protection-and-validation)
+   See [Security](security).
+   - Authentication and Authorization
+   - Role-Based Access Control (RBAC)
+   - Policy-Based Authorization
+   - Securing Routes with Middleware
+   - Password Hashing and Encryption
+   - CSRF Protection and Validation
 
 ## 2. **Caching**
-   - [Introduction to Caching](#introduction-to-caching)
-   - [Cache Drivers and Configuration](#cache-drivers-and-configuration)
-   - [Cache Tags and Grouping](#cache-tags-and-grouping)
-   - [Cache Locking and Throttling](#cache-locking-and-throttling)
-   - [Cache Query Results](#cache-query-results)
-   - [Managing Cache Expiry and Eviction](#managing-cache-expiry-and-eviction)
+   See [Caching](caching).
+   - PSR-6 cache and the `Cache` facade
+   - Cache Drivers and Configuration (array, file, database, redis, apc, memcached, dynamodb)
+   - Storing, Retrieving, and Forgetting Items
+   - Managing Cache Expiry and Eviction
 
 ## 3. **Testing**
-   - [Unit Testing with PHPUnit](#unit-testing-with-phpunit)
-   - [Feature Testing](#feature-testing)
-   - [Mocking and Stubbing](#mocking-and-stubbing)
-   - [Database Testing and Migrations](#database-testing-and-migrations)
-   - [Testing Events and Listeners](#testing-events-and-listeners)
-   - [Browser Testing with Dusk](#browser-testing-with-dusk)
+   See [Testing](testing).
+   - Integration Testing through the full routing/middleware pipeline
+   - Fabricated requests: `$this->get()`, `->post()`, `->postJson()` and the `TestResponse`
+   - Database Testing against a real database with isolated tables
+   - Testing Events and Listeners
 
 ## 4. **Service Container**
-   - [Understanding the Service Container](#understanding-the-service-container)
-   - [Binding Services into the Container](#binding-services-into-the-container)
-   - [Service Resolution and Dependency Injection](#service-resolution-and-dependency-injection)
-   - [Singletons and Shared Instances](#singletons-and-shared-instances)
-   - [Contextual Binding and Scopes](#contextual-binding-and-scopes)
-   - [Automatic Injection with Constructors](#automatic-injection-with-constructors)
+   See [Service Container](service-container).
+   - Binding Services (`bind`, `singleton`, `instance`, `scoped`)
+   - Service Resolution and Automatic Dependency Injection (`make`)
+   - Aliases, Extending/Decorating, Tagging, and Method Injection (`call`)
+   - Request Scopes and Worker Safety
 
 ## 5. **Event System**
-   - [Introduction to Events and Listeners](#introduction-to-events-and-listeners)
-   - [Defining Custom Events](#defining-custom-events)
-   - [Creating Event Listeners](#creating-event-listeners)
-   - [Event Broadcasting](#event-broadcasting)
-   - [Event Queues and Delayed Execution](#event-queues-and-delayed-execution)
-   - [Handling Event Listeners Dynamically](#handling-event-listeners-dynamically)
+   See [Events](events).
+   - String events and object events with payloads
+   - Creating Event Listeners (closures, `Class@method`, invokable classes)
+   - Wildcard listeners, `until()`, `hasListeners()`, and `forget()`
+   - The `EventServiceProvider` `$listen` map and subscribers
+   - Model events and observers
+   - Event Broadcasting
 
 ---
 
 ### Quick Links
 
-- [Getting Started Guide](../getting-started.md)
-- [API Reference](../api-reference.md)
+- [Getting Started Guide](../getting-started)
+- [Configuration](../configuration)
 
 ---
 
 ### Feedback and Contributions
-If you have suggestions or would like to contribute, please check out our [contribution guide](../contribution-guide.md).
+If you have suggestions or would like to contribute, please check out our [contribution guide](../contributing).

@@ -1,48 +1,57 @@
 ## Testing
 
-Testing is a crucial aspect of software development that ensures your application behaves as expected and allows you to catch bugs before they reach production. The framework provides a robust testing environment that supports unit testing, feature testing, and integration testing.
+Testing is a crucial aspect of software development that ensures your application behaves as expected and allows you to catch bugs before they reach production. Atom is built on **PHPUnit** and ships **built-in integration testing**: a base test case boots your real application and dispatches fabricated requests through the full routing/middleware/response pipeline, so you can exercise routes end-to-end without a running web server.
 
 ### 1. **Testing Overview**
-   Testing in this framework is powered by PHPUnit, a widely used testing framework for PHP. The testing environment is configured to work seamlessly with PHPUnit, offering tools to simulate various aspects of your application, including database interactions, HTTP requests, and more.
+   Testing in Atom is powered by PHPUnit, a widely used testing framework for PHP. On top of plain PHPUnit the framework adds two integration base cases you extend:
 
    **Key Concepts:**
-   - **Unit Testing:** Tests a single unit of functionality, typically a method or a class.
-   - **Feature Testing:** Simulates real-world user behavior, testing larger pieces of functionality like controllers, APIs, or views.
-   - **Integration Testing:** Ensures that different parts of the application work together as expected.
+   - **Unit Testing:** Tests a single unit of functionality, typically a method or a class, in isolation.
+   - **Integration (Feature) Testing:** Boots a real `Application` and dispatches fabricated requests through routing + middleware, asserting on the response. Provided by an integration base test case exposing `$this->get()`, `$this->post()`, `$this->postJson()` → a `TestResponse`.
+   - **Database Testing:** A database base test case binds a real database connection and manages isolated tables per test, so DB-backed code runs against an actual database.
 
 ### 2. **Setting Up the Testing Environment**
-   To begin testing, you need to set up PHPUnit. The framework uses PHPUnit as the default testing tool. The tests are typically stored in the `tests/` directory.
+   Tests live in the `tests/` directory and are configured with a `phpunit.xml` file. The suite is split into `Unit` and `Feature` test suites.
 
    **Key Concepts:**
-   - **Test Directory Structure:** The default location for tests is the `tests/` directory. You can organize tests into `Feature` and `Unit` subdirectories.
-   - **Test Configuration:** The `phpunit.xml` file allows you to configure PHPUnit settings, like test environment variables and test filtering.
+   - **Test Directory Structure:** Organize tests into `Unit` (isolated classes) and `Feature` (integration tests) subdirectories under `tests/`.
+   - **Test Configuration:** `phpunit.xml` configures the bootstrap file, test suites, and environment variables.
 
    Example `phpunit.xml`:
    ```xml
-   <phpunit bootstrap="vendor/autoload.php">
+   <?xml version="1.0" encoding="UTF-8"?>
+   <phpunit bootstrap="tests/bootstrap.php" colors="true">
        <testsuites>
-           <testsuite name="Application Test Suite">
-               <directory>./tests</directory>
+           <testsuite name="Unit">
+               <directory>tests/Unit</directory>
+           </testsuite>
+           <testsuite name="Feature">
+               <directory>tests/Feature</directory>
            </testsuite>
        </testsuites>
    </phpunit>
    ```
 
+   The bootstrap file loads the autoloader and points `base_path()` at your app root so the
+   integration base case can boot the application. Example `tests/bootstrap.php`:
+   ```php
+   <?php
+
+   require __DIR__ . '/../vendor/autoload.php';
+   require_once __DIR__ . '/../vendor/eyika/atom-framework/src/helpers.php';
+
+   $GLOBALS['base_path'] = dirname(__DIR__);
+   ```
+
 ### 3. **Writing Tests**
-   Tests are written in classes that extend `TestCase`. You can write unit tests for individual components or feature tests for broader parts of the application.
+   A plain unit test extends PHPUnit's `TestCase` and exercises a single class:
 
-   **Key Concepts:**
-   - **`TestCase`:** The base class provided by PHPUnit, which you extend to write your tests.
-   - **Assertions:** Methods used to check if the actual result matches the expected outcome (e.g., `assertTrue()`, `assertEquals()`).
-   - **Test Methods:** Each test is written inside a method within the test class, prefixed with `test`.
-
-   Example of a unit test:
    ```php
    use PHPUnit\Framework\TestCase;
 
    class UserTest extends TestCase
    {
-       public function testUserFullName()
+       public function test_full_name_joins_first_and_last(): void
        {
            $user = new User('John', 'Doe');
            $this->assertEquals('John Doe', $user->getFullName());
@@ -50,137 +59,192 @@ Testing is a crucial aspect of software development that ensures your applicatio
    }
    ```
 
-   Example of a feature test:
-   ```php
-   use Tests\TestCase;
+   An **integration (feature) test** extends your application's base `Test\TestCase` and dispatches requests through your app's **real** routes, middleware, and providers. Use `get()`, `post()`, `postJson()`, or `getJson()`; each returns a `TestResponse`:
 
-   class UserTest extends TestCase
+   ```php
+   namespace Test\Feature;
+
+   use Test\TestCase;
+
+   class HomeTest extends TestCase
    {
-       public function testUserRegistration()
+       public function test_the_home_page_renders(): void
        {
-           $response = $this->post('/register', [
-               'name' => 'John Doe',
-               'email' => 'john@example.com',
-               'password' => 'password',
-           ]);
-   
-           $response->assertStatus(201);
-           $response->assertJson([
-               'message' => 'User registered successfully',
-           ]);
+           $this->get('/')
+               ->assertOk()
+               ->assertBodyContains('Hello World');
+       }
+
+       public function test_a_named_route_reaches_the_controller(): void
+       {
+           $this->get('/name/Ada')
+               ->assertOk()
+               ->assertBodyContains('Hello Ada');
+       }
+
+       public function test_a_json_request_is_routed_to_the_api(): void
+       {
+           $this->getJson('/')
+               ->assertOk()
+               ->assertJsonFragment(['message' => 'hello world api']);
        }
    }
    ```
 
-### 4. **Assertions**
-   Assertions are the heart of any test. They compare the actual outcome with the expected outcome.
+   Your app's base test case (in `tests/TestCase.php`) simply extends the framework's shipped integration base:
 
-   **Common Assertions:**
-   - **`assertEquals($expected, $actual)`**: Asserts that two values are equal.
-   - **`assertTrue($condition)`**: Asserts that a condition is true.
-   - **`assertFalse($condition)`**: Asserts that a condition is false.
-   - **`assertNull($value)`**: Asserts that a value is `null`.
-   - **`assertCount($expectedCount, $array)`**: Asserts that the array has the expected number of items.
-   - **`assertDatabaseHas($table, $data)`**: Asserts that the database contains a specific record.
+   ```php
+   namespace Test;
+
+   use Eyika\Atom\Framework\Support\Testing\TestCase as IntegrationTestCase;
+
+   abstract class TestCase extends IntegrationTestCase
+   {
+       //
+   }
+   ```
+
+   The base case boots your application once (providers, `RouteServiceProvider` maps, route files) and resets per-request state between calls, so tests stay isolated. Each dispatched request returns a `TestResponse` — call its assertion methods (see below) to verify the outcome.
+
+### 4. **Assertions**
+   Assertions compare the actual outcome with the expected outcome. Integration tests assert against the `TestResponse` returned by `get()`/`post()`/`postJson()`:
+
+   **`TestResponse` assertions:**
+   - **`assertOk()` / `assertCreated()` / `assertNotFound()`**: Assert the status code is 200 / 201 / 404.
+   - **`assertStatus($code)`**: Asserts an exact status code.
+   - **`assertBodyContains($needle)`**: Asserts the response body contains a substring.
+   - **`assertBodyIs($expected)`**: Asserts the response body exactly equals a string.
+   - **`assertJsonFragment($fragment)`**: Decodes a JSON body and asserts it contains the given key/value pairs.
+   - **`assertHeader($name)`**: Asserts a header with the given name was sent.
+   - **`json()`**: Returns the decoded JSON body as an array for custom assertions.
 
    Example:
    ```php
-   $this->assertDatabaseHas('users', [
-       'email' => 'john@example.com',
-   ]);
+   $this->get('/api/users/1')
+       ->assertJsonFragment(['id' => 1, 'name' => 'John']);
    ```
 
+   Inside any test you also have the full set of PHPUnit assertions:
+   - **`assertEquals($expected, $actual)`**, **`assertSame($expected, $actual)`**
+   - **`assertTrue($condition)`**, **`assertFalse($condition)`**
+   - **`assertNull($value)`**, **`assertIsArray($value)`**
+   - **`assertCount($expectedCount, $array)`**
+
 ### 5. **Running Tests**
-   You can run tests using PHPUnit from the command line. The framework provides an artisan command to run your tests.
+   You can run the suite through Atom's artisan command, Composer scripts, or PHPUnit directly.
 
    **Key Concepts:**
-   - **Artisan Command for Testing:** Use `php artisan test` to run all tests or specific test files.
-   - **PHPUnit Command:** You can also run tests directly with `./vendor/bin/phpunit`.
+   - **Artisan Command:** `php artisan test` runs everything in the `tests/` directory.
+   - **Composer Scripts:** `composer test` (all), `composer test:unit`, `composer test:feature`.
+   - **PHPUnit Directly:** `./vendor/bin/phpunit`, optionally with `--testsuite Unit` or `--filter`.
 
-   Example of running tests:
+   Example:
    ```bash
    php artisan test
    ```
 
-   This command will run all the tests in the `tests` directory and output the results.
+   This runs all tests and outputs the results.
 
 ### 6. **Database Testing**
-   The framework provides a great way to interact with a test database while ensuring that your tests don't affect your production database. You can use database migrations and transactions to set up and tear down your database state before and after tests.
+   For DB-backed code, extend the framework's database base test case. It boots the app, binds a real `Connection` to the container's `db.connection` slot (so models and the `DB` builder hit the database), and lets you set up and tear down **isolated tables** per test. It skips gracefully when the database is unavailable.
 
    **Key Concepts:**
-   - **Database Migrations:** Use migrations to prepare your database schema for testing.
-   - **Database Transactions:** The framework automatically rolls back database transactions after each test, ensuring that no changes persist between tests.
-   - **Seeders:** You can use database seeders to populate your test database with sample data.
+   - **Isolated Schema:** Implement `createSchema()` and `dropSchema()` to build and drop dedicated test tables (conventionally prefixed, e.g. `atomtest_*`) around each test — no shared/production schema is touched.
+   - **Raw SQL:** `$this->raw($sql)` runs statements against the test connection.
+   - **Query Builder:** Use `DB::table(...)` and models exactly as you would in the app.
 
-   Example of running migrations for testing:
-   ```bash
-   php artisan migrate --env=testing
-   ```
-
-   Example of database transaction handling:
+   Example:
    ```php
-   public function testUserCreation()
+   use Eyika\Atom\Framework\Support\Database\DB;
+   use Eyika\Atom\Framework\Support\Testing\DatabaseTestCase;
+
+   class ItemTest extends DatabaseTestCase
    {
-       $user = factory(User::class)->create();
-       $this->assertDatabaseHas('users', ['email' => 'test@example.com']);
+       protected function createSchema(): void
+       {
+           $this->raw('DROP TABLE IF EXISTS atomtest_items');
+           $this->raw('CREATE TABLE atomtest_items (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(50), qty INT)');
+           $this->raw("INSERT INTO atomtest_items (name, qty) VALUES ('apple', 3)");
+       }
+
+       protected function dropSchema(): void
+       {
+           $this->raw('DROP TABLE IF EXISTS atomtest_items');
+       }
+
+       public function test_where_first_reads_a_row(): void
+       {
+           $row = DB::table('atomtest_items')->where('name', 'apple')->first();
+
+           $this->assertIsArray($row);
+           $this->assertSame('apple', $row['name']);
+           $this->assertEquals(3, $row['qty']);
+       }
    }
    ```
 
 ### 7. **Mocking and Stubbing**
-   Mocking allows you to simulate dependencies and isolate the component you're testing. You can use mocks to simulate objects and define expected behavior, making it easier to test without relying on external services.
+   Mocking lets you simulate dependencies and isolate the component you're testing. Use PHPUnit's built-in mock builder, and swap the real service in the container with the mock via `instance()`.
 
    **Key Concepts:**
-   - **Mock Objects:** Used to simulate the behavior of real objects in a controlled way.
-   - **Stubbing:** Returning predefined data or behavior from a method when called.
-   - **Dependency Injection:** Inject mock objects into your tests to replace real objects.
+   - **Mock Objects:** Create a test double with `$this->createMock(...)`.
+   - **Stubbing:** Define return values with `->method(...)->willReturn(...)`.
+   - **Container Swapping:** Bind the mock into the container so resolved dependencies use it.
 
    Example:
    ```php
-   $mock = Mockery::mock(UserRepository::class);
-   $mock->shouldReceive('getUser')->andReturn(new User());
-   
-   $this->app->instance(UserRepository::class, $mock);
-   
-   $response = $this->get('/user/1');
-   $response->assertStatus(200);
+   $repo = $this->createMock(UserRepository::class);
+   $repo->method('getUser')->willReturn(new User('John', 'Doe'));
+
+   // Swap the real binding for the mock.
+   $this->app->instance(UserRepository::class, $repo);
    ```
 
 ### 8. **Testing HTTP Requests**
-   Feature tests allow you to simulate user interactions with your application. You can test routes, controllers, and API endpoints to ensure they return the correct responses.
+   Integration tests simulate user interactions with your application. You can test routes, controllers, and API endpoints and assert on the responses. Requests are fabricated (from `$_SERVER`/`$_GET`/`$_POST`/cookies + an injectable source) and dispatched through the real pipeline — no HTTP server required.
 
    **Key Concepts:**
-   - **`$this->get()`**, **`$this->post()`**, **`$this->put()`**, **`$this->delete()`**: Methods to simulate HTTP requests.
-   - **Assertions on Response:** Check the response status, content, and headers.
+   - **`$this->get($uri, $headers = [])`**: Dispatch a GET request.
+   - **`$this->post($uri, $body = [], $headers = [])`**: Dispatch a POST with a form body.
+   - **`$this->postJson($uri, $json = [], $headers = [])`**: Dispatch a POST with a JSON body.
+   - **`$this->call($method, $uri, $query, $body, $headers, $cookies, $json)`**: Full control over every part of the request.
 
    Example:
    ```php
-   public function testHomePage()
+   public function test_create_user_returns_created(): void
    {
-       $response = $this->get('/');
-       $response->assertStatus(200);
-       $response->assertSee('Welcome to the homepage');
+       $this->withRoutes(function () {
+           Route::post('/api/users', [UserController::class, 'create']);
+       });
+
+       $this->postJson('/api/users', ['name' => 'John Doe'])
+           ->assertJsonFragment(['message' => 'User registered successfully']);
    }
    ```
 
-### 9. **Testing Authentication and Authorization**
-   You can test authentication and authorization to ensure that users can access only the resources they are allowed to.
+### 9. **Testing State-Dependent Routes**
+   Some routes depend on session state (for example, an authenticated user). The integration base case lets you bind a lightweight in-memory session double before dispatching, so protected routes can read the state they expect without a real session backend.
 
    **Key Concepts:**
-   - **Authentication Tests:** Ensure that the correct users are logged in before accessing protected routes.
-   - **Authorization Tests:** Ensure that only authorized users can access certain resources.
+   - **`$this->bindSession($data)`**: Bind an in-memory session pre-populated with the given data.
+   - **`$this->bindRequest($method, $uri, $input, $headers)`**: Fabricate and bind a `Request` without dispatching (for code that resolves the current request via the facade).
 
    Example:
    ```php
-   public function testUserCanAccessProfile()
+   public function test_dashboard_reads_logged_in_user(): void
    {
-       $user = factory(User::class)->create();
-       $response = $this->actingAs($user)->get('/profile');
-       $response->assertStatus(200);
+       $this->bindSession(['user_id' => 1]);
+
+       $this->withRoutes(function () {
+           Route::get('/dashboard', fn($request) => 'welcome back');
+       });
+
+       $this->get('/dashboard')->assertBodyContains('welcome back');
    }
    ```
 
 ### 10. **Test Coverage**
-   Code coverage ensures that your tests cover a sufficient portion of your application. You can use PHPUnit to generate coverage reports that show which parts of your code are tested and which parts are not.
+   Code coverage shows which parts of your application are exercised by tests. PHPUnit can generate coverage reports (requires Xdebug or PCOV).
 
    **Key Concepts:**
    - **Code Coverage Reports:** Generate reports to visualize which lines of code are covered by tests.
@@ -192,9 +256,9 @@ Testing is a crucial aspect of software development that ensures your applicatio
    ```
 
 ### Best Practices for Testing:
-   - **Write Tests for Critical Code:** Focus on writing tests for code that is central to the application’s functionality.
-   - **Isolate Tests:** Avoid tests that depend on external services or complex interactions. Use mocks and stubs to isolate behavior.
+   - **Write Tests for Critical Code:** Focus on writing tests for code that is central to the application's functionality.
+   - **Isolate Tests:** Keep unit tests free of external services; use mocks/stubs and the container to isolate behavior. Reserve real DB and full-pipeline exercise for the database/integration base cases.
    - **Use Descriptive Test Names:** Name your tests to describe their purpose and the behavior they are testing.
    - **Test Edge Cases:** Consider writing tests for edge cases, unexpected inputs, and failure scenarios.
 
-By utilizing the testing tools and strategies in this framework, you can ensure that your application remains reliable, maintainable, and robust as it evolves.
+By utilizing the testing tools and strategies in Atom, you can ensure that your application remains reliable, maintainable, and robust as it evolves.

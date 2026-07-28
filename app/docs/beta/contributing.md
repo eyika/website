@@ -24,8 +24,8 @@ We welcome contributions to enhance and improve the documentation and the underl
 
 ### 4. **Testing and Validation**
    If you make changes to the framework or codebase itself (not just documentation), please ensure the following:
-   - **Unit Testing:** Write or update unit tests for any new functionality. All new features should be properly tested to ensure they work as expected.
-   - **Check for Breakages:** Ensure that your changes do not break existing functionality. Run the full test suite to verify that everything works as expected.
+   - **Unit & Integration Testing:** Write or update tests for any new functionality. The suite is split into `Unit` (isolated classes) and `Feature` (integration tests that boot a real app and dispatch requests through the full pipeline). All new features should be properly tested to ensure they work as expected.
+   - **Check for Breakages:** Ensure that your changes do not break existing functionality. Run the full test suite (`composer test`, or `php artisan test` in an app) to verify that everything works as expected.
    - **Code Quality:** Adhere to the code quality standards of the project, including proper indentation, variable naming conventions, and code organization.
 
 ### 5. **Reporting Issues**

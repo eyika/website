@@ -36,7 +36,7 @@ The second parameter (`DefaultAppName`) acts as a fallback if the variable is no
 
 The `config` directory contains files for various aspects of your application, such as:
 
-- **`app.php`:** General application settings like name, environment, debug mode, etc.
+- **`app.php`:** General application settings like name, environment, debug mode, and the list of service providers.
 - **`database.php`:** Database connection settings.
 - **`cache.php`:** Cache settings.
 - **`mail.php`:** Mail configuration.
@@ -48,12 +48,73 @@ Here’s a snippet from the `config/app.php` file:
 
 ```php
 return [
-    'name' => env('APP_NAME', 'YourAppName'),
+    'name' => env('APP_NAME', 'Atom'),
     'env' => env('APP_ENV', 'production'),
     'debug' => env('APP_DEBUG', false),
     'url' => env('APP_URL', 'http://localhost'),
+    'timezone' => 'UTC',
+    'key' => env('APP_KEY'),
 ];
 ```
+
+## Service Providers
+
+Service providers are the bootstrapping layer of your application — they register container bindings and wire up subsystems (routing, events, cache, views, the database, and your own services). **The application owns its provider list.** The framework no longer hardcodes any `App\Providers\*` class; instead, every provider that should load on each request is listed in the `providers` array of `config/app.php`, and the classes themselves live in `app/Providers/`.
+
+```php
+// config/app.php
+'providers' => [
+    /*
+     * Default service providers.
+     */
+    \App\Providers\CacheServiceProvider::class,
+    \App\Providers\RouteServiceProvider::class,
+    \App\Providers\ConsoleServiceProvider::class,
+    \App\Providers\EventServiceProvider::class,
+    \App\Providers\ViewServiceProvider::class,
+    \App\Providers\DatabaseServiceProvider::class,
+
+    /*
+     * Package Service Providers...
+     */
+
+    /*
+     * Application Service Providers...
+     */
+    \App\Providers\AppServiceProvider::class,
+],
+```
+
+Because these are your files, you can freely edit them, remove ones you don't need, or add your own. `RouteServiceProvider` in particular is what maps incoming requests to your route files, so keep it in the list. Generate a new provider with:
+
+```bash
+php artisan make:provider PaymentServiceProvider
+```
+
+See [Service Container](advanced/service-container) for how providers register and resolve bindings.
+
+## Package Auto-Discovery
+
+Atom packages are discovered automatically — there is no need to add their providers to `config/app.php` by hand. When you `composer require` a package that declares an `extra.atom` block in its own `composer.json`, its service providers (and facade aliases) are registered for you:
+
+```json
+{
+    "extra": {
+        "atom": {
+            "providers": ["Vendor\\Pkg\\PkgServiceProvider"],
+            "aliases":   { "Pkg": "Vendor\\Pkg\\Facades\\Pkg" }
+        }
+    }
+}
+```
+
+Atom caches this discovery into a package manifest so it doesn't re-parse composer metadata on every request. Rebuild the manifest after installing or updating packages:
+
+```bash
+php artisan package:discover
+```
+
+This normally runs automatically as part of composer's install/update scripts.
 
 ### Accessing Configuration Values
 
@@ -88,21 +149,28 @@ return [
 $facebookClientId = config('social.facebook.client_id');
 ```
 
-## Caching Configuration
+## Caching Configuration & Routes
 
-For better performance in production, you can cache your configuration settings using the following command:
+For better performance in production, you can cache your configuration settings into a single compiled file, reducing file I/O during requests:
 
 ```bash
 php artisan config:cache
 ```
 
-This command compiles all configuration files into a single file, reducing file I/O during requests. To clear the cache, run:
+To clear the compiled configuration, run:
 
 ```bash
 php artisan config:clear
 ```
 
-> Note: The last two commands and feature is still under development
+Routes can be cached the same way, so the router doesn't re-parse your route files on every request:
+
+```bash
+php artisan route:cache
+php artisan route:clear
+```
+
+> Note: Route files that define routes with closures are kept dynamic and are not cached — move those to controller actions if you want them in the route cache.
 
 ## Best Practices
 

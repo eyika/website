@@ -3,29 +3,42 @@
 An event-driven architecture helps decouple different parts of your application by allowing them to communicate via events. The event system is an essential feature in modern PHP frameworks that facilitates the broadcasting, listening, and handling of events. It enhances flexibility by decoupling the logic of event dispatch from the logic of event handling.
 
 ### 1. **Event System Overview**
-   The event system in a framework allows different parts of the application to listen for and react to specific events. Events can be dispatched, and listeners can respond to those events, executing their respective actions.
+   The event system in Atom allows different parts of the application to listen for and react to specific events. Events can be dispatched, and listeners can respond to those events, executing their respective actions.
 
    **Key Concepts:**
-   - **Event:** A specific action or occurrence in the application.
-   - **Listener:** A function or method that responds to an event.
-   - **Dispatcher:** The component responsible for firing events and invoking listeners.
-   - **Subscriber:** A specialized listener class that listens for multiple events.
+   - **Event:** A specific action or occurrence in the application, identified either by a string name (`'user.registered'`) or by an event object's class.
+   - **Listener:** A closure, class, or `'Class@method'` reference that responds to an event.
+   - **Dispatcher:** The `Eyika\Atom\Framework\Foundation\Event\Dispatcher`, bound in the container as `'events'`, is responsible for firing events and invoking listeners.
+   - **Subscriber:** A specialized class that registers listeners for multiple events at once.
 
 ### 2. **Event Dispatching**
    Events are dispatched when an action occurs in your application. For example, an event could be triggered when a user registers or when a new record is saved to the database.
 
-   **Key Concepts:**
-   - **Dispatching an Event:** When an event occurs, the system dispatches the event, notifying all listeners.
+   Atom supports two flavours of events:
 
-   **Dispatching an Event Example:**
-   You can dispatch an event like this:
+   **String events with a payload** — the simplest form. The payload is passed as an array of arguments to the listeners:
+   ```php
+   // Using the event() helper
+   event('user.registered', [$user]);
+
+   // Or resolving the dispatcher directly
+   app('events')->dispatch('user.registered', [$user]);
+   ```
+
+   **Object events** — the event's class name becomes the event name, and the object itself is the single payload argument passed to listeners:
    ```php
    event(new UserRegistered($user));
    ```
-   In this example, the `UserRegistered` event is fired with the `User` object as the payload.
+
+   The `event()` helper signature is `event($event, $payload = [], $halt = false)`. You may also use the `Event` facade:
+   ```php
+   use Eyika\Atom\Framework\Support\Facade\Event;
+
+   Event::dispatch('user.registered', [$user]);
+   ```
 
 ### 3. **Defining an Event**
-   An event is typically a class that holds data related to the occurrence. It encapsulates information that listeners need to handle the event.
+   For object events, an event is simply a plain class that holds data related to the occurrence. It encapsulates information that listeners need to handle the event — no interface or base class is required.
 
    **Example of an Event:**
    ```php
@@ -40,16 +53,28 @@ An event-driven architecture helps decouple different parts of your application 
    }
    ```
 
-   The `UserRegistered` event class holds the `User` object that contains all the necessary data to be used by the listeners.
+   The `UserRegistered` event class holds the `User` object that contains all the necessary data to be used by the listeners. Scaffold one with `php artisan make:event UserRegistered`.
 
 ### 4. **Listening for Events**
-   Listeners respond to specific events. You can define a listener class that listens for an event and executes some logic when that event is triggered.
+   Listeners respond to specific events. A listener may be a closure, an invokable class, a class with a `handle()` method, an `[$object, 'method']` pair, or a `'Class@method'` string.
 
-   **Key Concepts:**
-   - **Event Listener:** A class or closure that listens to an event and executes logic when the event is triggered.
-   - **Automatic Listener Registration:** Some frameworks automatically register listeners from configuration files.
+   **Registering a listener:**
+   ```php
+   use Eyika\Atom\Framework\Support\Facade\Event;
 
-   **Defining a Listener:**
+   // Closure listener
+   Event::listen('user.registered', function (User $user) {
+       // ...
+   });
+
+   // Class listener (resolves the class and calls handle() or __invoke())
+   Event::listen(UserRegistered::class, SendWelcomeEmail::class);
+
+   // "Class@method" listener
+   Event::listen(UserRegistered::class, 'App\Listeners\SendWelcomeEmail@handle');
+   ```
+
+   **Defining a listener class:**
    ```php
    class SendWelcomeEmail
    {
@@ -61,29 +86,58 @@ An event-driven architecture helps decouple different parts of your application 
    }
    ```
 
-   The `SendWelcomeEmail` listener is triggered when the `UserRegistered` event is fired. It uses the `handle()` method to perform actions such as sending a welcome email.
+   When a listener is given as a class-string, the dispatcher instantiates it and calls its `handle()` method if present, otherwise `__invoke()`. Scaffold one with `php artisan make:listener SendWelcomeEmail`.
 
-   **Registering a Listener:**
-   You can register the listener within a service provider or an event service provider.
+### 5. **Wildcard Listeners**
+   Listeners may subscribe to a wildcard pattern, where `*` matches any characters. This is useful for catching a whole family of events with one listener — including model events (see below).
+
    ```php
-   protected $listen = [
-       UserRegistered::class => [
-           SendWelcomeEmail::class,
-       ],
-   ];
+   use Eyika\Atom\Framework\Support\Facade\Event;
+
+   // React to every "model.*" event
+   Event::listen('model.*', function ($payload) {
+       // ...
+   });
+
+   // React to absolutely everything
+   Event::listen('*', function ($payload) {
+       // ...
+   });
    ```
 
-### 5. **Event Subscribers**
-   An event subscriber is a class that listens for multiple events. Unlike a listener that only responds to a single event, a subscriber can subscribe to a set of events.
+### 6. **Halting, Inspecting & Forgetting**
+   The dispatcher exposes several methods for finer control over propagation and registration:
 
-   **Key Concepts:**
-   - **Subscriber:** A class that groups multiple event listeners.
+   - **`until($event, $payload = [])`** — dispatch and return the first **non-null** listener response, stopping propagation. Useful for "before" hooks / veto checks.
+   - **A listener returning `false`** halts propagation of the remaining listeners.
+   - **`hasListeners($eventName)`** — returns whether any listener (exact or wildcard) is registered for an event.
+   - **`forget($event)`** — remove all listeners for an exact event or wildcard pattern.
+
+   ```php
+   use Eyika\Atom\Framework\Support\Facade\Event;
+
+   // Stop at the first listener that returns a non-null value
+   $result = Event::until('order.validating', [$order]);
+
+   if (Event::hasListeners('order.shipped')) {
+       // ...
+   }
+
+   Event::forget('order.shipped');
+   ```
+
+   The `event()` helper also accepts a third `$halt` argument: `event('order.validating', [$order], true)` behaves like `until()`.
+
+### 7. **Event Subscribers**
+   An event subscriber is a class that registers listeners for multiple events. Instead of registering each listener individually, the subscriber's `subscribe()` method receives the dispatcher and wires up its own listeners.
 
    **Defining an Event Subscriber:**
    ```php
+   use Eyika\Atom\Framework\Foundation\Event\Dispatcher;
+
    class UserEventSubscriber
    {
-       public function subscribe(Dispatcher $events)
+       public function subscribe(Dispatcher $events): void
        {
            $events->listen(
                UserRegistered::class,
@@ -98,25 +152,122 @@ An event-driven architecture helps decouple different parts of your application 
    }
    ```
 
-   The `UserEventSubscriber` listens for multiple events (`UserRegistered`, `UserLoggedIn`) and assigns corresponding listeners to each.
-
    **Registering a Subscriber:**
    ```php
-   protected $subscribe = [
-       UserEventSubscriber::class,
-   ];
+   use Eyika\Atom\Framework\Support\Facade\Event;
+
+   Event::subscribe(UserEventSubscriber::class);
    ```
 
-### 6. **Event Broadcasting**
-   Broadcasting events allows you to send events to the client-side, typically via WebSockets or other real-time technologies. This is useful when you want to inform users about changes or updates in real-time.
+   You can pass either a class-string or an already-constructed subscriber instance.
 
-   **Key Concepts:**
-   - **Broadcasting:** Sending events over a WebSocket or other protocols for real-time communication.
-   - **Channels:** Define which events are broadcast to which channels.
+### 8. **Event Service Provider**
+   The `EventServiceProvider` is the central place to register the application's event → listener mappings. It exposes a `$listen` map that is registered on boot via `registerListeners()`.
 
-   **Broadcasting an Event:**
-   To broadcast an event, you’ll need to use a `ShouldBroadcast` interface in the event class.
+   **Example of the Event Service Provider:**
    ```php
+   namespace App\Providers;
+
+   use Eyika\Atom\Framework\Foundation\Event\Dispatcher;
+   use Eyika\Atom\Framework\Foundation\ServiceProvider;
+
+   class EventServiceProvider extends ServiceProvider
+   {
+       /**
+        * The event → listener mappings for the application.
+        *
+        * @var array<string, array<int, class-string>>
+        */
+       protected array $listen = [
+           \App\Events\UserRegistered::class => [
+               \App\Listeners\SendWelcomeEmail::class,
+               \App\Listeners\LogUserRegistration::class,
+           ],
+       ];
+
+       public function register(): void
+       {
+           $this->app->singleton(Dispatcher::class, fn () => new Dispatcher());
+           $this->app->instance('events', $this->app->make(Dispatcher::class));
+       }
+
+       public function boot(): void
+       {
+           $dispatcher = $this->app->make(Dispatcher::class);
+           $dispatcher->registerListeners($this->listen);
+       }
+   }
+   ```
+
+   The keys of `$listen` may be object-event class names or string event names, and each maps to one or more listeners. This provider is registered in `config/app.php` like any other.
+
+### 9. **Model Events**
+   Atom models fire lifecycle events as records move through their persistence flow. You can hook these to run logic automatically whenever a model is created, updated, saved, deleted, or retrieved.
+
+   The observable model events are:
+
+   `retrieved`, `creating`, `created`, `updating`, `updated`, `saving`, `saved`, `deleting`, `deleted`, `restoring`, `restored`
+
+   Register a callback for a single event directly on the model class. Each callback receives the model instance:
+   ```php
+   User::creating(function ($user) {
+       $user->uuid = Str::uuid();
+   });
+
+   User::deleted(function ($user) {
+       // clean up related records
+   });
+   ```
+
+   The "before" events (`creating`, `updating`, `saving`, `deleting`, `restoring`) can **abort the operation** by returning `false` from the callback:
+   ```php
+   Order::deleting(function ($order) {
+       if ($order->isLocked()) {
+           return false; // cancels the delete
+       }
+   });
+   ```
+
+### 10. **Model Observers**
+   When you find yourself listening to many events on a model, group them into an **observer** — a class whose method names match the model events. Only the methods the observer actually defines are wired up.
+
+   **Defining an observer** (scaffold with `php artisan make:observer UserObserver`):
+   ```php
+   class UserObserver
+   {
+       public function creating($user): void
+       {
+           $user->uuid = Str::uuid();
+       }
+
+       public function created($user): void
+       {
+           // send verification email, etc.
+       }
+
+       public function deleted($user): void
+       {
+           // cleanup
+       }
+   }
+   ```
+
+   **Registering the observer** — typically in a service provider's `boot()`:
+   ```php
+   use App\Models\User;
+   use App\Observers\UserObserver;
+
+   User::observe(UserObserver::class);
+   ```
+
+   `observe()` accepts a class-string, an instance, or an array of either, so you can attach several observers to the same model.
+
+### 11. **Event Broadcasting**
+   Broadcasting events allows you to send events to the client-side, typically via WebSockets, for real-time communication. An event object that implements the `ShouldBroadcast` interface is automatically broadcast when it is dispatched.
+
+   ```php
+   use Eyika\Atom\Framework\Broadcasting\Contracts\ShouldBroadcast;
+
    class OrderShipped implements ShouldBroadcast
    {
        public $order;
@@ -128,87 +279,18 @@ An event-driven architecture helps decouple different parts of your application 
 
        public function broadcastOn()
        {
-           return new Channel('orders');
+           return 'orders';
        }
    }
    ```
 
-   In this case, the `OrderShipped` event is broadcast to the `orders` channel.
+   When `event(new OrderShipped($order))` is dispatched, the dispatcher broadcasts it on the channel(s) returned by `broadcastOn()` in addition to invoking any local listeners.
 
-### 7. **Event Service Providers**
-   Event service providers are responsible for registering events and listeners. In some frameworks, you can specify which events should trigger specific listeners in this centralized location.
+### 12. **Event System Best Practices**
+   - **Use events to decouple logic:** Dispatch an event when something significant happens, and let listeners handle the related side-effects (email, logging, notifications).
+   - **Prefer observers for models:** When a model needs several lifecycle hooks, group them into an observer for better organization.
+   - **Use wildcards deliberately:** `'model.*'` and `'*'` listeners are powerful for cross-cutting concerns like auditing, but keep their work light.
+   - **Use `until()` for veto flows:** When an event should decide whether an action proceeds, use `until()` (or the `$halt` argument) and have listeners return a value or `false`.
+   - **Broadcast sparingly:** Only broadcast critical events to avoid overloading real-time clients.
 
-   **Key Concepts:**
-   - **Event Service Provider:** A class that registers all event listeners and subscribers.
-
-   **Example of Event Service Provider:**
-   ```php
-   class EventServiceProvider extends ServiceProvider
-   {
-       protected $listen = [
-           UserRegistered::class => [
-               SendWelcomeEmail::class,
-               LogUserRegistration::class,
-           ],
-       ];
-
-       public function boot()
-       {
-           parent::boot();
-       }
-   }
-   ```
-
-   The `EventServiceProvider` class maps events to their listeners, ensuring that when an event occurs, the corresponding listeners are triggered.
-
-### 8. **Event Queuing**
-   Sometimes, event listeners can be time-consuming, like sending emails or processing large data. To avoid delaying the response of your application, you can queue event listeners.
-
-   **Key Concepts:**
-   - **Queued Listeners:** Listeners that are pushed to a queue to be processed later.
-
-   **Making a Listener Queueable:**
-   You can implement the `ShouldQueue` interface in the listener to make it queueable.
-   ```php
-   class SendWelcomeEmail implements ShouldQueue
-   {
-       public function handle(UserRegistered $event)
-       {
-           Mail::to($event->user->email)->send(new WelcomeEmail($event->user));
-       }
-   }
-   ```
-
-   The listener will now be pushed to the queue instead of being executed immediately.
-
-### 9. **Event Chaining**
-   Event chaining allows multiple listeners to be executed in sequence. Each listener will be executed only after the previous one has completed.
-
-   **Key Concepts:**
-   - **Chained Events:** Events that trigger multiple listeners in a sequence.
-
-   Example of chained listeners:
-   ```php
-   class UserRegistered implements ShouldQueue
-   {
-       public $user;
-
-       public function __construct(User $user)
-       {
-           $this->user = $user;
-       }
-
-       public function handle()
-       {
-           // Perform actions like sending email, logging, etc.
-       }
-   }
-   ```
-
-### 10. **Event System Best Practices**
-   - **Use Events to Decouple Logic:** Keep the event and listener logic separate. For example, dispatch events when something significant happens, and then let listeners handle related tasks.
-   - **Use Subscribers for Grouping Listeners:** When dealing with multiple events, consider grouping them into a subscriber class for better organization.
-   - **Consider Performance with Queued Events:** Use queued listeners for expensive or time-consuming tasks (e.g., sending emails, processing payments).
-   - **Use Broadcasting Sparingly:** Broadcast only critical events to avoid overloading the system with unnecessary real-time updates.
-
-By utilizing the event system, you can achieve a more modular, maintainable, and responsive application architecture. The event-driven approach allows you to build decoupled components and handle asynchronous tasks in a clean and effective manner.
+By utilizing the event system, you can achieve a more modular, maintainable, and responsive application architecture. The event-driven approach lets you build decoupled components and react to significant moments — including a model's entire lifecycle — in a clean and effective manner.

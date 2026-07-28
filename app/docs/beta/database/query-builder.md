@@ -2,6 +2,8 @@
 
 This documentation provides an overview of the `DB` class, which serves as a query builder for interacting with a database. The class provides methods for performing various database operations, including transactions, CRUD operations, pagination, and query filtering.
 
+The `DB` builder returns plain PHP arrays. For a fluent, Laravel-like result API, wrap those arrays with `collect(...)`, or use a [Model](./models.md) whose reads return [Collections](./models.md#collections) natively.
+
 ---
 
 ## Table of Contents
@@ -12,17 +14,22 @@ This documentation provides an overview of the `DB` class, which serves as a que
 5. [Ordering and Pagination](#ordering-and-pagination)
 6. [Raw Queries](#raw-queries)
 7. [Aggregation Functions](#aggregation-functions)
+8. [Collections](#collections)
 
 ---
 
 ### Initialization
 
-#### `DB::init()`
-Initializes the `DB` class instance.
+#### `DB::table(string $table)`
+Starts a fluent query on a table and returns a builder instance. This is the entry point for every chained query.
 
 ```php
-DB::init();
+use Eyika\Atom\Framework\Support\Database\DB;
+
+DB::table('users');
 ```
+
+> Each `DB::table(...)` call returns its **own** builder instance, so two live builders never clobber each other's `WHERE`/`ORDER`/`JOIN`/`LIMIT` state.
 
 ---
 
@@ -49,145 +56,181 @@ Rolls back the current transaction.
 DB::rollback();
 ```
 
+To serialize read-modify-write access to a row inside a transaction, add a pessimistic write lock with `lockForUpdate()`:
+
+```php
+$row = DB::table('wallets')->where('id', 1)->lockForUpdate()->first();
+```
+
 ---
 
 ### CRUD Operations
 
-#### `DB::create(string $table, array $values, array|string $select = '*')`
-Creates a new record in the specified table.
+#### `create(array $values, array|string $select = '*')`
+Creates a new record and returns the fetched row.
 
 ```php
-DB::create('users', ['name' => 'John Doe', 'email' => 'john@example.com']);
+DB::table('users')->create(['name' => 'John Doe', 'email' => 'john@example.com']);
 ```
 
-#### `DB::find(string $table, int $id, array|string $fields = '*')`
-Finds a record by its ID.
+#### `insert(array $values)`
+Inserts a record and returns the new insert id.
 
 ```php
-$user = DB::find('users', 1);
+$id = DB::table('users')->insert(['name' => 'John Doe']);
 ```
 
-#### `DB::first(string $table, int $id = 1, array|string $fields = '*')`
-Finds the first record matching the criteria.
+#### `find(int $id, array|string $fields = '*')`
+Finds a record by its ID. Returns the row, or `false` on miss.
 
 ```php
-$user = DB::first('users');
+$user = DB::table('users')->find(1);
 ```
 
-#### `DB::findBy(string $table, string $key, $value, array|string $select = '*')`
-Finds a record by a specific column value.
+#### `first(array|string $fields = '*')`
+Finds the first record matching the current filters. Returns the row, or `false` on miss.
 
 ```php
-$user = DB::findBy('users', 'email', 'john@example.com');
+$user = DB::table('users')->where('status', 'active')->first();
 ```
 
-#### `DB::update(string $table, array $values, int $id)`
-Updates a record by its ID.
+#### `findBy(string $key, $value, array|string $select = '*')`
+Finds records by a specific column value.
 
 ```php
-DB::update('users', ['name' => 'Jane Doe'], 1);
+$user = DB::table('users')->findBy('email', 'john@example.com');
 ```
 
-#### `DB::delete(string $table, int $id)`
-Deletes a record by its ID.
+#### `update(array $values, int|null $id = null)`
+Updates records matching the current filters (or a given id).
 
 ```php
-DB::delete('users', 1);
+DB::table('users')->where('id', 1)->update(['name' => 'Jane Doe']);
+```
+
+#### `delete(int|null $id = null)`
+Deletes records matching the current filters (or a given id).
+
+```php
+DB::table('users')->where('id', 1)->delete();
 ```
 
 ---
 
 ### Query Filters
 
-#### `DB::where(string $column, string|null $operatorOrValue = null, $value = null)`
+#### `where(string $column, string|null $operatorOrValue = null, $value = null)`
 Adds a `WHERE` condition to the query.
 
 ```php
-DB::where('name', '=', 'John')->get('users');
+DB::table('users')->where('name', '=', 'John')->get();
 ```
 
-#### `DB::orWhere(string $column, string|null $operatorOrValue = null, $value = null)`
+#### `orWhere(string $column, string|null $operatorOrValue = null, $value = null)`
 Adds an `OR WHERE` condition to the query.
 
 ```php
-DB::orWhere('name', '=', 'John')->get('users');
+DB::table('users')->where('status', 'active')->orWhere('role', '=', 'admin')->get();
 ```
 
-#### `DB::whereLike(string $column, $value)`
+#### `whereLike(string $column, $value)`
 Adds a `WHERE LIKE` condition.
 
 ```php
-DB::whereLike('name', '%John%')->get('users');
+DB::table('users')->whereLike('name', '%John%')->get();
 ```
 
-#### `DB::whereNull(string $column)`
+#### `whereNull(string $column)`
 Adds a `WHERE column IS NULL` condition.
 
 ```php
-DB::whereNull('deleted_at')->get('users');
+DB::table('users')->whereNull('deleted_at')->get();
 ```
+
+Additional filters include `whereIn`, `whereNotIn`, `whereBetween`, `whereNotBetween`, `whereLessThan`, `whereGreaterThan`, `whereEqual`, `whereNotNull`, and their `orWhere...` counterparts, plus joins (`join`, `leftJoin`, `rightJoin`, `fullOuterJoin`) and `distinct`.
 
 ---
 
 ### Ordering and Pagination
 
-#### `DB::orderBy(string $column = "id", string $direction = "ASC")`
-Specifies the order of the results.
+#### `orderBy(string $column = "id", string $direction = "ASC")`
+Specifies the order of the results. The column identifier is escaped and the direction is whitelisted to guard against injection.
 
 ```php
-DB::orderBy('name', 'DESC')->get('users');
+DB::table('users')->orderBy('name', 'DESC')->get();
 ```
 
-#### `DB::paginate(string $table, int $currentPage = 1, int $recordsPerPage = 10)`
-Retrieves paginated results.
+#### `paginate(int $currentPage = null, int $recordsPerPage = null)`
+Retrieves paginated results as a `PaginatedData` object.
 
 ```php
-DB::paginate('users', 1, 10);
+$page = DB::table('users')->paginate(1, 10);
+
+$page->collection();  // current page's items as a Collection
+$page->toArray();     // data + totalRecords/totalPages/recordsPerPage/currentPage + next/previous URLs
 ```
 
 ---
 
 ### Raw Queries
 
-#### `DB::raw(string $sql, array $bind)`
-Executes a raw SQL query.
+#### `DB::query(string $sql, array $bind = []): array`
+Runs a parameterized `SELECT` and returns an array of associative rows. Bindings are named.
 
 ```php
-DB::raw('SELECT * FROM users WHERE id = ?', [1]);
+DB::query('SELECT * FROM users WHERE id = :id', ['id' => 1]);
 ```
+
+#### `DB::statement(string $sql)`
+Executes a statement (DDL or a write) and returns `true` on success.
+
+```php
+DB::statement('DELETE FROM users WHERE id = 1');
+```
+
+#### `DB::select(string $sql)`
+Runs a raw `SELECT` string and returns all fetched rows.
+
+An instance `->raw($sql, $bind)` is also available off a `DB::table(...)` builder.
 
 ---
 
 ### Aggregation Functions
 
-#### `DB::count(string $table, string $column = "*")`
-Counts the number of rows in a table.
+#### `count(string $column = "*")`
+Counts the number of rows.
 
 ```php
-$count = DB::count('users');
+$count = DB::table('users')->count();
 ```
 
-#### `DB::avg(string $column)`
-Calculates the average value of a column (Not implemented).
+#### `avg(string $column)`
+Calculates the average value of a column.
 
 ```php
-DB::avg('age');
+DB::table('users')->avg('age');
 ```
 
-#### `DB::max(string $column)`
-Finds the maximum value of a column (Not implemented).
+#### `max(string $column)` / `min(string $column)`
+Finds the maximum / minimum value of a column.
 
 ```php
-DB::max('salary');
+DB::table('salaries')->max('amount');
+DB::table('salaries')->min('amount');
 ```
 
-#### `DB::min(string $column)`
-Finds the minimum value of a column (Not implemented).
-
-```php
-DB::min('salary');
-```
+Further aggregates include `sum`, `group_concat`, `var_pop`, `stddev`, `bit_and`, `bit_or`, and `bit_xor`, along with `increment(column, step)` / `decrement(column, step)` for atomic counter updates.
 
 ---
 
-This documentation highlights the core functionalities of the `DB` class. Methods marked as "Not implemented" indicate planned features that are yet to be developed.
+### Collections
+
+The `DB` builder's reads (`get()`, `all()`, `find()`, `first()`) return plain arrays (or `false` on miss). To use the fluent collection API, wrap the result with the `collect()` helper:
+
+```php
+$active = collect(DB::table('users')->get())
+    ->where('status', 'active')
+    ->pluck('email');
+```
+
+Model reads return a [Collection](./models.md#collections) directly, and can stream large result sets lazily with `cursor()` / `lazy()`. See the [Model Query Builder](./models.md) for the collection-native API.

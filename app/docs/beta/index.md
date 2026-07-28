@@ -7,20 +7,21 @@ This framework is designed to mimic Laravel as closely as possible, providing a 
 ---
 
 ## Features at a Glance
-- 🌟 **Robust Routing System:** Handle complex routes effortlessly.
-- ⚡ **Lightning-Fast Performance:** Optimized for speed and efficiency.
-- 🛠️ **Extensible & Modular:** Easily customize and extend.
-- 🧪 **Built-in Testing Support:** Write and run tests with ease.
+- 🌟 **App-Owned Routing:** Wire requests to route files with route maps + matchers in your `RouteServiceProvider` — no hardcoded web/api heuristic.
+- ⚡ **Worker-Safe Performance:** Per-request state is flushed between requests, so the framework runs under persistent workers (Octane-style) as well as classic FPM.
+- 🛠️ **Extensible & Modular:** App-owned service providers, deferred providers, and zero-config package auto-discovery.
+- 🧪 **Built-in Testing Support:** Boot a real app and dispatch fabricated requests through the full routing/middleware pipeline.
 - 🚌 **MVC Architecture**: Organize your code using the Model-View-Controller pattern for clean and maintainable applications.
 - 🚂 **Routing**: Define routes to handle incoming requests and direct them to the appropriate controllers.
-- 📚 **Middleware**: Add layers of logic to your request handling pipeline.
+- 📚 **Middleware**: App-level and framework middleware, grouped and prioritized via the HTTP `Kernel`.
 - 🚎 **Controllers**: Manage your application's logic and handle requests.
-- 🚎 **Requests**: Validate and process incoming data.
-- 💻 **Views**: Render dynamic content using a templating engine.
+- 🚎 **Requests**: Validate and process incoming data (with an injectable request source for testing).
+- 💻 **Views**: Render dynamic content using the Blade templating engine.
 - 💥 **Logging**: Keep track of application events and errors.
-- 🍔 **Database**: Interact with your database using migrations and a query builder.
-- ✨ **Advanced Features**: Implement security measures, caching, testing, dependency management, services, and more.
-- ⚡ **Event System**: Handle events and listeners for decoupled and modular code.
+- 🍔 **Database & Collections**: A fluent query builder and models that return powerful `Collection`s (map/filter/pluck/groupBy/…) plus lazy cursors for large results.
+- 🔌 **Service Container**: Bind/singleton/scoped/instance bindings, tagging, aliasing, and automatic dependency injection.
+- ⚡ **Event System**: String and object events, wildcard listeners, subscribers, and model events with observers.
+- ✨ **Advanced Features**: Security (CSRF, encryption, signed URLs), PSR-6 caching, testing, and more.
 
 ---
 

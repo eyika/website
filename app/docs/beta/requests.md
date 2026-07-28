@@ -10,6 +10,8 @@ The `Request` class in the Atom framework provides an abstraction layer for hand
 
 The `Request` object is injected into controller methods or middleware, enabling seamless access to incoming data.
 
+The constructor signature is `new Request(?array $source = null)`. When `$source` is `null` (the normal case) the request captures data from PHP's superglobals and `php://input`, so `new Request()` behaves as before. Passing an explicit source (keys: `server`, `query`, `post`, `cookies`, `files`, `headers`, `rawBody`) lets a worker or a test build a request without touching process globals.
+
 ### Example: Accessing the Request in a Controller
 ```php
 <?php
@@ -17,17 +19,19 @@ The `Request` object is injected into controller methods or middleware, enabling
 namespace App\Http\Controllers;
 
 use Eyika\Atom\Framework\Http\Request;
-use Eyika\Atom\Framework\Http\JsonResponse;
+use Eyika\Atom\Framework\Support\Facade\JsonResponse;
 
 class UserController
 {
-    public function store(Request $request): JsonResponse
+    public function store(Request $request)
     {
         $data = $request->all();
         return JsonResponse::ok('', $data);
     }
 }
 ```
+
+> Static response calls (`JsonResponse::ok(...)`) go through the **facade** in `Eyika\Atom\Framework\Support\Facade`. See the [Controllers](controllers) docs for more.
 
 ---
 
@@ -107,21 +111,25 @@ if ($request->hasHeader('Authorization')) {
 The `Request` object makes it easy to handle uploaded files.
 
 ### Retrieving Uploaded Files
+`file()` returns a `File` object (or `null` if the field is absent). `files()` returns all uploaded files, and `hasFile()` checks for one.
 ```php
 $file = $request->file('avatar');
 if ($file) {
-    $path = $file->store('uploads/avatars');
+    // store($path, $disk) uploads the file to the given storage disk
+    $file->store('uploads/avatars', 'local');
 }
 ```
 
-> Note: This is not yet implemented (We'll Be Glad To Get A PR From You)
-
 ### File Methods
-Once you have a file object, you can use the following methods:
-- `$file->getName()`: Retrieve the original filename.
-- `$file->getMimeType()`: Retrieve the MIME type.
-- `$file->getSize()`: Retrieve the file size in bytes.
-- `$file->move($destination, $name)`: Move the file to a new location.
+The original upload metadata is available through `uploadProperties()`:
+- `$file->uploadProperties()->name()`: Retrieve the original filename.
+- `$file->uploadProperties()->type()`: Retrieve the MIME type.
+- `$file->uploadProperties()->size()`: Retrieve the file size in bytes.
+- `$file->uploadProperties()->tmpName()`: Retrieve the temporary upload path.
+
+The `File` object itself provides storage operations:
+- `$file->store($path, $disk)`: Upload the file to a storage disk.
+- `$file->move($from, $to)`: Move the file to a new location.
 
 ---
 
@@ -131,6 +139,8 @@ The `Request` object includes validation utilities for ensuring the integrity of
 
 ### Example: Validating Input
 ```php
+use Eyika\Atom\Framework\Support\Validator;
+
 $data = $request->validate([
     'name' => 'required|string',
     'email' => 'required|email',
@@ -140,6 +150,13 @@ $data = $request->validate([
 if (!$data) {
     logger()->info('validation failed', Validator::$errors);
 }
+```
+
+`validate()` returns the **validated data** (an array) on success, or `false` on failure — in which case the collected errors are available in `Validator::$errors` (or `$request->validationErrors()`). If you'd rather have validation throw automatically, use `validateOrFail()`:
+```php
+$data = $request->validateOrFail([
+    'name' => 'required|string',
+], message: 'errors in request', code: 422);
 ```
 
 ### Validation Rules
@@ -163,7 +180,7 @@ if (!$data) {
 - **array**: Checks the field is an array data.
 - **json**: Checks the field is a valid json string.
 
-If validation fails, an exception is thrown, and an appropriate error response is returned.
+By default `validate()` does not throw — it returns `false` on failure. Use `validateOrFail()` if you want a failed validation to raise an exception that the framework turns into an error response.
 
 ---
 
@@ -193,28 +210,29 @@ $method = $request->method()
 
 ## Working with JSON Data
 
-The `Request` object can handle JSON payloads sent in the body of a request.
-
-### Retrieving JSON Input
+The `Request` object handles JSON payloads sent in the body of a request automatically. When the `Content-Type` is `application/json`, the decoded body is merged into the request input, so the usual accessors work without any extra step:
 ```php
-$data = $request->json(); // Returns an array of JSON data
-$name = $request->json('name'); // Retrieve a specific key
+$data = $request->input();       // full decoded JSON body (plus files)
+$name = $request->input('name'); // a specific key from the JSON body
 ```
 
-> Note: This feature is not yet implemented (We'll Be Glad To Get A PR From You)
+You can check for a JSON request with `$request->isJson()`, and `$request->rawBody()` returns the raw request body string.
+
+> A dedicated `$request->json()` accessor is not yet implemented (We'll Be Glad To Get A PR From You) — use `input()` as shown above.
 
 ---
 
 ## CSRF Protection
 
-The framework automatically manages CSRF tokens for forms and AJAX requests. You can retrieve the token from the request.
-
-### Retrieving the CSRF Token
+The framework verifies CSRF tokens for state-changing requests through the shipped `VerifyCsrfToken` middleware (add it to the `web` middleware group in your Kernel). Token generation and validation are handled by the `Csrf` helper rather than a method on the request:
 ```php
-$token = $request->csrfToken();
+use Eyika\Atom\Framework\Http\Csrf;
+
+Csrf::setCsrfToken();      // generate/refresh the token (e.g. before rendering a form)
+$valid = Csrf::csrfIsValid(); // validate the incoming request's token
 ```
 
-> Note: This feature is not yet implemented (We'll Be Glad To Get A PR From You)
+> `VerifyCsrfToken` exempts read-only verbs (GET/HEAD/OPTIONS) and verifies all state-changing ones (POST/PUT/PATCH/DELETE).
 
 ---
 
@@ -248,10 +266,13 @@ class Request extends BaseRequest
 Requests can be tested by simulating HTTP calls with mock data.
 
 ### Example: Simulating a Request
+Pass an explicit source array. Body fields go under the `post` key; URL parameters under `query`:
 ```php
 use Eyika\Atom\Framework\Http\Request;
 
-$request = new Request(['name' => 'John Doe', 'email' => 'john@example.com']);
+$request = new Request([
+    'post' => ['name' => 'John Doe', 'email' => 'john@example.com'],
+]);
 $name = $request->input('name'); // 'John Doe'
 ```
 

@@ -2,7 +2,9 @@
 
 ## Introduction
 
-Atom framework provides a robust and intuitive database layer that simplifies interactions with databases. Atom supports raw SQL queries, query builders, and the Active Record pattern, giving developers the flexibility to choose the best approach for their needs.
+Atom framework provides a robust and intuitive database layer that simplifies interactions with databases. Atom supports raw SQL queries, a fluent query builder, and the Active Record pattern, giving developers the flexibility to choose the best approach for their needs.
+
+Multi-row reads from models return a **Collection** (`Eyika\Atom\Framework\Support\Collections\Collection`) — a Laravel-like collection with 100+ chainable methods (`map`, `filter`, `pluck`, `where`, `first`, `sortBy`, `groupBy`, …). See [Model Query Builder](./models.md) and [Query Builder](./query-builder.md) for details.
 
 ---
 
@@ -44,22 +46,24 @@ return [
 
 ## Query Builder
 
-Atom includes a powerful query builder to construct SQL queries programmatically.
+Atom includes a powerful query builder to construct SQL queries programmatically. The entry point is `DB::table('...')`, which returns a fluent builder instance.
 
 ### Selecting Data
 ```php
 use Eyika\Atom\Framework\Support\Database\DB;
 
-// Fetch all users
-$users = DB::init()->get('users');
+// Fetch all users (array of associative rows)
+$users = DB::table('users')->get();
 
-// Fetch a single user
-$user = DB::init()->where('id', 1)->first('users');
+// Fetch a single user (associative row, or false on miss)
+$user = DB::table('users')->where('id', 1)->first();
 ```
+
+> The raw `DB` builder returns plain arrays. Wrap a result in `collect($users)` to get a fluent [Collection](./query-builder.md#collections), or use a [Model](./models.md) whose reads already return collections.
 
 ### Inserting Data
 ```php
-DB::init()->insert('users', [
+DB::table('users')->insert([
     'name' => 'John Doe',
     'email' => 'johndoe@example.com',
 ]);
@@ -67,14 +71,14 @@ DB::init()->insert('users', [
 
 ### Updating Data
 ```php
-DB::init()
+DB::table('users')
     ->where('id', 1)
-    ->update('users', ['email' => 'newemail@example.com']);
+    ->update(['email' => 'newemail@example.com']);
 ```
 
 ### Deleting Data
 ```php
-DB::init()->where('id', 1)->delete('users');
+DB::table('users')->where('id', 1)->delete();
 ```
 
 ---
@@ -87,12 +91,14 @@ For complex queries or when you need full control over SQL, Atom supports raw qu
 ```php
 use Eyika\Atom\Framework\Support\Database\DB;
 
-// Running a raw select query
-$results = DB::raw('SELECT * FROM users WHERE id = ?', [1]);
+// Parameterized SELECT — returns an array of associative rows
+$results = DB::query('SELECT * FROM users WHERE id = :id', ['id' => 1]);
 
-// Running a raw insert/update/delete query
-DB::raw('DELETE FROM users WHERE id = ?', [1]);
+// Execute a statement (DDL / write) — returns true on success
+DB::statement('DELETE FROM users WHERE id = 1');
 ```
+
+Use named placeholders (`:id`) with bound values to keep queries safe from injection.
 
 ---
 
@@ -109,9 +115,19 @@ use Eyika\Atom\Framework\Support\Database\Model;
 
 class User extends Model
 {
-    protected $table = 'users'; // Optional: default is the pluralized class name
-    protected $primaryKey = 'id';
-    protected $fillable = ['name', 'email'];
+    public $table = 'users';       // Optional: defaults to the pluralized class name
+    public $primaryKey = 'id';
+
+    // fillable / guarded / casts are class CONSTANTS, not properties.
+    protected const fillable = ['id', 'name', 'email', 'created_at', 'updated_at'];
+    protected const guarded  = ['deleted_at'];
+
+    // Cast attributes to native PHP types on read/write.
+    protected const casts = [
+        'id'         => 'int',
+        'is_active'  => 'boolean',
+        'meta'       => 'array',
+    ];
 }
 ```
 
@@ -121,11 +137,25 @@ class User extends Model
 ```php
 use App\Models\User;
 
-// Fetch all users
-$users = User::getBuilder()->all();
+// Fetch all users — returns a Collection (or false when the table is empty)
+$users = User::all();
 
-// Fetch a single user
+// Fetch a single user by id — returns the model, or null on miss
+$user = User::find(1);
+
+// getBuilder() returns a fresh builder instance and is equivalent to a static call
 $user = User::getBuilder()->find(1);
+```
+
+> Single-record finders (`find()`, `first()`, `findBy()`) return `null` when no row matches. Multi-record reads (`all()`, `get()`) return a `Collection` on success, or `false` when nothing matches.
+
+Because reads return a Collection, you can chain the fluent API directly:
+
+```php
+$activeEmails = User::all()
+    ->where('is_active', true)
+    ->sortBy('name')
+    ->pluck('email');
 ```
 
 #### Inserting Data
@@ -138,14 +168,14 @@ $user->save();
 
 #### Updating Data
 ```php
-$user = User::getBuilder()->find(1);
+$user = User::find(1);
 $user->email = 'newemail@example.com';
 $user->save();
 ```
 
 #### Deleting Data
 ```php
-$user = User::getBuilder()->find(1);
+$user = User::find(1);
 $user->delete();
 ```
 
@@ -153,40 +183,44 @@ $user->delete();
 
 ## Migrations
 
-Migrations provide a version control system for your database schema, allowing you to manage schema changes programmatically.
+Migrations provide a version control system for your database schema, allowing you to manage schema changes programmatically with a Laravel-style schema builder. See the [Migrations and Seeds](./migrations.md) guide for the full reference.
 
 ### Creating a Migration
 
 Run the following command to create a new migration file:
 ```bash
-php atom make:migration CreateUsersTable
+php artisan make:migration create_users_table
 ```
 
-> Note: You must follow the naming convention above
-
-This will create a new migration file in the `database/migrations` directory.
+This creates a timestamped migration file in the `database/migrations` directory.
 
 ### Writing a Migration
 
-Example migration to create a `users` table:
+Example migration to create a `users` table using `Schema` + `Blueprint`:
 ```php
-use Phinx\Migration\AbstractMigration;
+use Eyika\Atom\Framework\Support\Database\Schema\Migrations\Migration;
+use Eyika\Atom\Framework\Support\Database\Schema\Blueprint;
+use Eyika\Atom\Framework\Support\Database\Schema\Schema;
 
-class CreateUsersTable extends Migration
+return new class extends Migration
 {
-    const TABLE_NAME = 'users';
-
-    public function change()
+    public function up(): void
     {
-        $table = $this->table($this::TABLE_NAME);
-        $table->addColumn('name', 'string', ['limit' => 30])
-            ->addColumn('previleges', 'string', ['limit' => 256])
-            ->addColumn('deleted_at', 'timestamp', ['null' => true, 'default' => null])
-            ->addTimestamps()
-            ->addIndex(['previleges'], ['unique' => true])
-            ->create();
+        Schema::create('users', function (Blueprint $table) {
+            $table->id();
+            $table->string('name', 255);
+            $table->string('email', 255)->unique();
+            $table->string('previleges', 256);
+            $table->timestamp('deleted_at')->nullable();
+            $table->timestamps();
+        });
     }
-}
+
+    public function down(): void
+    {
+        Schema::dropIfExists('users');
+    }
+};
 ```
 
 ### Running Migrations
@@ -196,14 +230,18 @@ php artisan migrate
 
 ### Rolling Back Migrations
 ```bash
-php artisan migrate:rollback
+# Roll every migration back
+php artisan migrate:reset
+
+# Reset then re-run all migrations
+php artisan migrate:refresh
 ```
 
 ---
 
 ## Seeding
 
-Database seeders allow you to populate your database with dummy data.
+Database seeders allow you to populate your database with dummy data. Seeders live in `database/seeds` and extend the framework `Seeder` base class.
 
 ### Creating a Seeder
 
@@ -216,42 +254,27 @@ php artisan make:seeder UsersTableSeeder
 
 Example seeder for the `users` table:
 ```php
-use Dotenv\Dotenv;
-use Phinx\Seed\AbstractSeed;
+namespace Database\Seeds;
 
-class UserSeeder extends AbstractSeed
+use Eyika\Atom\Framework\Support\Database\Seeder\Seeder;
+
+class UsersTableSeeder extends Seeder
 {
-    /**
-     * Run Method.
-     *
-     * Write your database seeder using this method.
-     *
-     * More information on writing seeders is available here:
-     * https://book.cakephp.org/phinx/0/en/seeding.html
-     */
     public function run(): void
     {
-        // $dotenv = strtolower(PHP_OS_FAMILY) === 'windows' ? Dotenv::createImmutable(__DIR__."\\..\\..\\") : Dotenv::createImmutable(__DIR__.'/../../');
-        // $dotenv->safeLoad();
-
-        // $dotenv->required(['TEST_USER_NAME', 'TEST_USER', 'TEST_PASS'])->notEmpty();
-        $ids = $this->fetchRow("SELECT id FROM roles WHERE name = 'admin'");
-        $id = !$ids ? 1 : $ids[0];
         $data = [
             [
-                'username' => env('TEST_USER_NAME'),
-                'email' => env('TEST_USER'),
-                'password' => password_hash(env('TEST_PASS'), PASSWORD_BCRYPT),
-                'phone' => '08100000000',
+                'username'  => env('TEST_USER_NAME'),
+                'email'     => env('TEST_USER'),
+                'password'  => password_hash(env('TEST_PASS'), PASSWORD_BCRYPT),
                 'firstname' => 'Jhony',
-                'lastname' => 'Doe',
-                'status' => 'active',
-                'role_id' => $id
-            ]
+                'lastname'  => 'Doe',
+                'status'    => 'active',
+            ],
         ];
 
-        $users = $this->table('users');
-        $users->insert($data)->saveData();
+        // Seeder::insert() writes each row via DB::table($table)->insert($row)
+        $this->insert('users', $data);
     }
 }
 ```
@@ -293,9 +316,12 @@ class User extends Model
 
 #### Using Relationships
 ```php
-$user = User::getBuilder()->find(1);
+// Eager-load the relation with with(), then access it as a property
+$user = User::getBuilder()->with('posts')->find(1);
 $posts = $user->posts; // Access related posts
 ```
+
+Eager loading via `with()` batches a single `WHERE IN` query per relation, avoiding N+1 queries.
 
 ---
 

@@ -3,61 +3,142 @@
 Security is a critical aspect of building robust and scalable applications. In this section, we will explore key security features provided by the framework and how to effectively implement them to safeguard your application.
 
 ### 1. **Authentication and Authorization**
-   - **Authentication** verifies the identity of the user. The framework provides simple methods to authenticate users using sessions, cookies, and JWT (JSON Web Tokens).
-   - **Authorization** determines what a user can and cannot do. It controls access to resources based on the roles and permissions assigned to a user.
+   - **Authentication** verifies the identity of the user. Atom authenticates through *guards* — it ships session, token, and JWT guards out of the box.
+   - **Authorization** determines what a user can and cannot do, controlling access to resources based on roles and permissions.
+
+   The `Auth` class (`Eyika\Atom\Framework\Support\Auth\Auth`) is the entry point:
+   ```php
+   use Eyika\Atom\Framework\Support\Auth\Auth;
+
+   if (Auth::attempt(['email' => $email, 'password' => $password])) {
+       $user = Auth::user();
+   }
+
+   Auth::check();   // is someone authenticated?
+   Auth::logout();  // end the session
+   ```
 
    **Key Concepts:**
-   - User authentication using guards.
-   - Role and permission management for fine-grained access control.
-   - Middleware to protect routes and ensure proper authorization.
+   - User authentication using guards (`SessionGuard`, `TokenGuard`, `JwtGuard`).
+   - Credentials are verified with PHP's native `password_verify()` inside the auth drivers.
+   - Middleware to protect routes and ensure the request is authenticated.
 
-### 2. **Role-Based Access Control (RBAC)**
-   Role-Based Access Control (RBAC) is a method for restricting access to resources based on user roles. By assigning users to specific roles, you can control what actions they are allowed to perform.
+### 2. **Role and Permission Checks**
+   Access can be restricted based on the roles or permissions a user holds. At the view layer, Blade's permission helper (`@can`) evaluates a user's permissions through the framework's `ValidatePermissions` authorization logic:
+
+   ```php
+   @can('edit-posts')
+       <a href="/posts/{{ $post->id }}/edit">Edit</a>
+   @endcan
+   ```
 
    **Key Concepts:**
-   - Creating roles and assigning permissions.
-   - Protecting routes with role checks.
-   - Managing access control via policies and gates.
+   - Assigning roles/permissions to users in your application layer.
+   - Gating view fragments with `@can`.
+   - Protecting routes with your own authorization middleware (see section 5).
 
 ### 3. **Custom Authentication Guards**
-   The framework provides a default authentication guard, but you may define your own custom guards if the default behavior doesn't suit your application's needs.
+   Guards are configured in the `config/auth.php` file. Atom provides default guards, but you may define your own by implementing the `Authenticator` contract when the built-in behavior doesn't suit your needs.
 
    **Key Concepts:**
-   - Custom guards to authenticate users based on different methods (API tokens, OAuth, etc.).
-   - Configuring guards in the `auth.php` configuration file.
-   - Writing custom guard classes that implement your authentication logic.
+   - Custom guards to authenticate users based on different mechanisms (API tokens, JWT, OAuth, etc.).
+   - Configuring guards and providers in `config/auth.php`.
+   - Resolving a specific guard with `Auth::guard('name')`.
 
-### 4. **Policy-Based Authorization**
-   Policies define the logic for determining if a user is authorized to perform a given action on a resource. They are particularly useful when you need complex authorization logic for various actions.
+### 4. **Policy Scaffolding**
+   Policies group the authorization logic for a given model or resource. You can scaffold a policy class with the framework's generator:
+
+   ```bash
+   php artisan make:policy PostPolicy
+   ```
 
    **Key Concepts:**
-   - Defining policies for models (e.g., `PostPolicy` for `Post` model).
-   - Registering policies in the `AuthServiceProvider`.
-   - Using the `authorize()` method within controllers to enforce policy checks.
+   - Defining policy classes that hold per-action authorization rules.
+   - Calling into the policy from your controllers before performing an action.
+   - Keeping authorization logic out of controllers and views.
 
 ### 5. **Securing Routes with Middleware**
-   Middleware is a great way to protect routes and enforce security checks before users can access certain parts of the application. Middleware can be applied globally, on specific routes, or groups of routes.
+   Middleware is the primary way to enforce security checks before a request reaches your controller. Middleware is declared in `app/Http/Kernel.php` across the global stack, the `web`/`api` groups, and named aliases.
 
-   **Key Concepts:**
-   - Using `auth` middleware to ensure users are authenticated before accessing routes.
-   - Using `can` middleware to check if a user has specific permissions.
-   - Protecting sensitive routes with custom middleware, such as for 2FA or IP whitelisting.
+   The framework ships these security-relevant middleware:
+   - `VerifyCsrfToken` — CSRF protection for state-changing requests.
+   - `ValidateSignature` — rejects requests without a valid signed URL.
+   - `EnsureEmailIsVerified` — blocks users whose email is unverified.
+   - `ValidatePostSize`, `ConvertEmptyStringsToNull`, `SubstituteBindings`, `StartSession`, `ShareErrorsFromSession`, `ServePublicAssets`.
+
+   Your application template adds `TrustProxies`, `HandleCors`, `EncryptCookies`, `PreventRequestsDuringMaintenance`, and `TrimStrings`.
+
+   You enable a middleware by listing it in the appropriate group or attaching it to routes:
+   ```php
+   protected $middlewareGroups = [
+       'web' => [
+           StartSession::class,
+           EncryptCookies::class,
+           VerifyCsrfToken::class, // enable CSRF for browser routes
+           SubstituteBindings::class,
+       ],
+   ];
+   ```
 
 ### 6. **Password Hashing and Encryption**
-   The framework provides tools for securely storing and validating user passwords, ensuring that sensitive data is protected using encryption algorithms like bcrypt.
+   Atom keeps password hashing and two-way encryption separate.
+
+   - **Password hashing:** Store passwords with PHP's native `password_hash()` and verify them with `password_verify()` — this is what the built-in auth drivers use (bcrypt by default).
+   - **Two-way encryption:** Use the `Encrypter` facade for reversible encryption of values you need to read back. It uses `AES-256-CBC` with an HMAC integrity check, keyed on your `APP_KEY`.
+
+   ```php
+   use Eyika\Atom\Framework\Support\Facade\Encrypter;
+
+   $ciphertext = Encrypter::encrypt($secret);
+   $plaintext  = Encrypter::decrypt($ciphertext);
+
+   // Serialize non-string values before encrypting:
+   $ciphertext = Encrypter::encrypt($array, serialize: true);
+   $array      = Encrypter::decrypt($ciphertext, unserialize: true);
+   ```
 
    **Key Concepts:**
-   - Using the `Hash` facade to hash and verify passwords.
-   - Encrypting data using the `Crypt` facade for secure storage.
-   - Managing password resets and securely storing reset tokens.
+   - A valid `APP_KEY` is required — the `Encrypter` derives its key and HMAC from it.
+   - The `EncryptCookies` middleware transparently encrypts and decrypts response/request cookies (excluding session and CSRF cookies).
+   - The MAC is verified on decrypt, so tampered payloads throw instead of returning corrupt data.
 
-### 7. **CSRF Protection and Validation**
-   Cross-Site Request Forgery (CSRF) is a type of attack where malicious users can perform unauthorized actions on behalf of an authenticated user. The framework includes built-in CSRF protection to guard against such attacks.
+### 7. **CSRF Protection**
+   Cross-Site Request Forgery (CSRF) tricks an authenticated user's browser into making unwanted state-changing requests. Atom's `VerifyCsrfToken` middleware guards against this.
 
    **Key Concepts:**
-   - CSRF tokens automatically included in forms to protect against CSRF attacks.
-   - Verifying CSRF tokens in AJAX requests.
-   - Disabling CSRF protection for specific routes when necessary (though it's generally recommended to leave it enabled).
+   - The middleware verifies **all** state-changing verbs (`POST`, `PUT`, `PATCH`, `DELETE`) and exempts read-only ones (`GET`, `HEAD`, `OPTIONS`).
+   - Add a token to your forms with the Blade directive:
+     ```php
+     <form method="POST" action="/profile">
+         @csrf_token
+         <!-- fields -->
+     </form>
+     ```
+   - Exempt specific paths by adding them to the middleware's `$except` list (for example, an incoming webhook endpoint that authenticates by signature instead).
+
+### 8. **Signed URLs**
+   Signed URLs let you hand out tamper-proof links (email verification, one-time downloads) without a session. Generate them from a named route and validate them with the `ValidateSignature` middleware.
+
+   ```php
+   use Eyika\Atom\Framework\Support\Url;
+
+   // Permanent signed URL
+   $url = Url::signedRoute('unsubscribe', ['user' => $id]);
+
+   // Expiring signed URL (Unix timestamp)
+   $url = Url::temporarySignedRoute('verify.email', time() + 3600, ['user' => $id]);
+   ```
+
+   Within a handler you can also check the current request directly:
+   ```php
+   use Eyika\Atom\Framework\Exceptions\Http\AccessDeniedHttpException;
+
+   if (!$request->hasValidSignature()) {
+       throw new AccessDeniedHttpException('Invalid signature.');
+   }
+   ```
+
+   Signatures are an HMAC-SHA256 over the path and sorted query string, keyed on `APP_KEY`; expired links are rejected automatically.
 
 ### Additional Security Best Practices:
    - **HTTPS:** Enforce HTTPS across your entire application to prevent man-in-the-middle attacks.

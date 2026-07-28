@@ -11,29 +11,38 @@ The service container is a powerful and essential tool in modern PHP frameworks.
    - **Binding:** Registering classes, interfaces, or closures into the service container.
 
 ### 2. **Binding Services to the Container**
-   Services can be bound to the container in several ways: as a singleton, a factory, or a shared instance.
+   Services can be bound to the container in several ways: as a transient binding, a singleton, or a shared instance.
 
    **Key Concepts:**
-   - **Singleton:** A single instance of a service is shared across the entire application.
-   - **Factory:** A closure or class that creates and returns a new instance of a service when needed.
-   - **Shared Instances:** A service that, when resolved, returns the same instance each time it’s requested.
+   - **`bind()` (transient):** A resolver closure that produces a **fresh** object every time the service is resolved.
+   - **`singleton()`:** The resolver runs once (memoized); every resolution returns that same object.
+   - **`instance()`:** Register an already-constructed object; the container returns it as-is on every resolution.
+   - **`scoped()`:** A request-scoped singleton — memoized like a singleton, but flushed between requests when running under a persistent worker (see below).
+
+   > Note: unlike some containers, a plain `bind()` in Atom is **transient** — resolving it twice gives you two different objects. Use `singleton()` (or `instance()`) when you need a shared object.
 
    **Binding Services in the Container:**
    You can bind services to the container in a `ServiceProvider`. Here is an example:
 
    ```php
-   // Binding a service as a singleton
+   // Binding a service as a singleton (resolver receives the container)
    $this->app->singleton(Logger::class, function ($app) {
        return new Logger(config('logging.level'));
    });
    ```
 
-   Example for binding a factory:
+   Example for a transient factory binding:
    ```php
-   // Binding a service as a factory
+   // A fresh UserRepository every time it is resolved
    $this->app->bind(UserRepository::class, function ($app) {
        return new UserRepository($app->make(DatabaseConnection::class));
    });
+   ```
+
+   Example for registering an existing instance:
+   ```php
+   // Share a pre-built object
+   $this->app->instance('cache', new Cache());
    ```
 
    **Binding to the Container Directly:**
@@ -47,11 +56,11 @@ The service container is a powerful and essential tool in modern PHP frameworks.
    ```
 
 ### 3. **Resolving Services from the Container**
-   After binding a service, you can resolve it from the container when needed. You can retrieve services from the container via the `resolve()` method or `make()` method.
+   After binding a service, you can resolve it from the container when needed. The primary method is `make()`.
 
    **Key Concepts:**
-   - **`make()` Method:** Resolves and returns an instance of the service, resolving all dependencies automatically.
-   - **`resolve()` Method:** Resolves a service, similar to `make()`, but often used to instantiate services within the scope of the application.
+   - **`make()` Method:** Resolves and returns an instance of the service, resolving all constructor dependencies automatically. If nothing is bound for the key, the container will attempt to auto-resolve the class by reflection.
+   - **Array access:** The container implements `ArrayAccess`, so `$this->app['events']` is equivalent to `$this->app->make('events')`.
 
    Example of resolving a service:
    ```php
@@ -144,10 +153,12 @@ The service container is a powerful and essential tool in modern PHP frameworks.
 
    Example:
    ```php
-   $this->app->bind(PaymentGatewayInterface::class, StripePaymentGateway::class);
+   $this->app->bind(PaymentGatewayInterface::class, function ($app) {
+       return $app->make(StripePaymentGateway::class);
+   });
    ```
 
-   Now, whenever you resolve `PaymentGatewayInterface`, the container will inject an instance of `StripePaymentGateway`.
+   Now, whenever you resolve `PaymentGatewayInterface`, the container will inject an instance of `StripePaymentGateway`. (A binding resolver is always a closure or object — to map one key to another by name, use an `alias()` instead, shown below.)
 
    Example:
    ```php
@@ -185,16 +196,57 @@ The service container is a powerful and essential tool in modern PHP frameworks.
    In this case, the closure will be executed to instantiate `StripePaymentGateway` with the configuration.
 
 ### 9. **Service Container Advanced Usage**
-   - **Contextual Binding:** Allows you to bind different implementations of a service in specific contexts.
-   - **Tagging Services:** Allows you to group related services and resolve them collectively.
-   - **Defer Loading:** Defers the resolution of a service until it is actually needed, helping to optimize performance.
+   Beyond `bind`, `singleton`, `instance`, and `make`, the container offers a number of tools for more advanced wiring.
 
-   Example of tagging services:
+   **Aliases** — resolve one key by another name (the alias chain is followed and cycle-guarded):
    ```php
-   $this->app->tag([Logger::class, Mailer::class], 'logging');
+   $this->app->alias(StripePaymentGateway::class, PaymentGatewayInterface::class);
+   // make(PaymentGatewayInterface::class) now resolves the concrete class
    ```
 
-### 10. **Service Container Best Practices**
+   **Extending / decorating** — wrap an already-registered service. The closure receives the resolved instance and the container and returns the (possibly wrapped) service:
+   ```php
+   $this->app->extend(Logger::class, function ($logger, $app) {
+       return new BufferedLogger($logger);
+   });
+   ```
+
+   **Tagging** — group related services and resolve them collectively. `tag($abstracts, $tags)` assigns, `tagged($tag)` resolves every member:
+   ```php
+   $this->app->tag([Logger::class, Mailer::class], 'reporters');
+
+   foreach ($this->app->tagged('reporters') as $reporter) {
+       // ...
+   }
+   ```
+
+   **Method injection with `call()`** — invoke a callable and let the container resolve its type-hinted parameters. Accepts a closure, `'Class@method'`, `[$object, 'method']`, a function name, or an invokable object; entries in the `$parameters` array (by name) override autowiring:
+   ```php
+   $this->app->call([$controller, 'store'], ['id' => 42]);
+   $this->app->call('App\Reports\SalesReport@generate');
+   ```
+
+   **Deferred providers** — a provider that implements `DeferrableProvider` and declares `provides()` is not registered until one of the services it provides is first resolved, saving boot-time work.
+
+### 10. **Request Scopes & Worker Safety**
+   Atom is safe to run under persistent workers (boot once, serve many requests). Request-bound services must not leak between requests, so the container supports **scoped** bindings and explicit reset hooks.
+
+   - **`scoped($key, $resolver)`** — like a singleton, but its memoized instance is dropped between requests, so per-request state (the current request/response, the authenticated user) is re-resolved fresh each time.
+   - **`forgetScopedInstances()`** — drop every scoped instance; a worker calls this between requests.
+   - **`forgetInstance($key)`** — drop a single resolved instance.
+   - **`flush()`** — a full container reset (all bindings, instances, aliases, tags), used at worker shutdown and in tests.
+
+   ```php
+   // Bind a request-scoped service
+   $this->app->scoped('current.tenant', function ($app) {
+       return Tenant::fromRequest($app->make('request'));
+   });
+
+   // Between requests (worker internals)
+   $this->app->forgetScopedInstances();
+   ```
+
+### 11. **Service Container Best Practices**
    - **Avoid Over-Binding:** Only bind services that need to be shared or resolved through the container.
    - **Prefer Constructor Injection:** Whenever possible, inject dependencies through the constructor rather than using the container directly.
    - **Don’t Overuse the Container:** Rely on the container for managing core services but avoid overuse for classes that could be instantiated manually.

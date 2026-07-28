@@ -6,20 +6,22 @@ Welcome to **Atom**! This guide will walk you through the basic setup and help y
 
 Before you begin, ensure that your environment meets the following requirements:
 
-- PHP >= 7.4
+- PHP >= 7.4 (PHP 8.x fully supported)
 - Composer (for managing dependencies)
 - A supported database system (e.g., MySQL, SQLite)
 
 ## Installation
 
-### Step 1: Create Your Project From Source
+### Step 1: Create Your Project
 
-To install **Atom**, run the command below in your terminal.
+To scaffold a new **Atom** application, run the command below in your terminal.
 ```bash
 composer create-project eyika/atom my-app dev-main
 ```
 
-> Note: you must include 'dev-main' for now as there is no version number yet.
+> Note: include `dev-main` for now — the skeleton is published at `beta` stability and does not yet have a tagged version number.
+
+This pulls in the `eyika/atom-framework` core library plus the app template (controllers, providers, routes, config).
 
 ### Step 2: Navigate To Your Project Folder
 
@@ -29,13 +31,15 @@ cd my-app
 
 ### Step 3: Install Composer Dependencies
 
+`composer create-project` already installs dependencies. If you cloned the template manually instead, run:
+
 ```bash
 composer install
 ```
 
-> If everything installs successfully, you should have `vendor` folder in your project root folder.
+> If everything installs successfully, you should have a `vendor` folder in your project root.
 
-## Starting You Application
+## Starting Your Application
 
 After installing the framework, you can start building your application.
 
@@ -47,15 +51,15 @@ Copy the `.env.example` file to `.env`:
 cp .env.example .env
 ```
 
-Generate the APP-KEY env variable
+Generate the `APP_KEY` environment variable (used by the encrypter, signed URLs and cookie encryption):
 
 ```bash
 php artisan key:generate
 ```
 
-> During installation the previous steps may already be done for you automatically
+> During `composer create-project` both steps above are usually run for you automatically (`.env` is copied and `key:generate` is invoked by the post-create script).
 
-Edit the `.env` file to configure your environment settings, including the database connection, redis connection, file etc.
+Edit the `.env` file to configure your environment settings, including the database connection, redis connection, mail, filesystem, etc.
 
 ### Step 2: Start the Development Server
 
@@ -71,64 +75,99 @@ or
 php artisan serve --host=example.local --port=81
 ```
 
-> You can change the host and port values to your need as long as the host name
-> has been declared in the operating systems host file
+> The built-in server binds to `0.0.0.0` on port `80` by default. Use `--host`/`--port` to change this — the host name must be resolvable (declared in your operating system's hosts file if it is not `localhost`).
 
-Visit `http://localhost:8000` or `http://localhost:81` in your browser to verify that the framework is working.
+Visit `http://localhost` (or `http://example.local:81` for the custom example above) in your browser to verify that the framework is working.
 
 ### Step 3: Creating Routes
 
-By default, the framework will route HTTP requests to the appropriate controller and action. Here's an example of defining a route in `routes/web.php`:
+Routes are declared in the files under `routes/`. `routes/web.php` holds session-backed web routes and `routes/api.php` holds stateless JSON routes. A route handler may return a string, an array, or a `Response`/`JsonResponse`. Here's an example in `routes/web.php`:
 
 ```php
+use Eyika\Atom\Framework\Http\Route;
+
 Route::get('/', function () {
-    echo 'Hello, World!';
-    return true;
+    return 'Hello, World!';
 });
 ```
 
+Which route file handles a request is decided by `app/Providers/RouteServiceProvider`, which maps requests to route files (JSON/AJAX/`/api` requests go to `routes/api.php`; everything else falls back to `routes/web.php`). See [Routing](routing) for the full map/matcher API.
+
 ### Step 4: Create a Controller
 
-To organize your application logic, it's a good idea to use controllers. You can create a controller using the following command:
+To organize your application logic, use controllers. You can create one with:
 
 ```bash
-php artisan make:controller HomeController
+php artisan make:controller HelloController
 ```
 
-Or this to make Api Controller
+Or this to make an API controller (generated under `app/Http/Controllers/Api/`):
 
 ```bash
-php artisan make:controller HomeController --api
+php artisan make:controller HelloController --api
 ```
 
-Then, define a method in the controller:
+A controller receives the `Request` (plus any route parameters) and returns a response. Using the `Response`/`JsonResponse` facades gives you static, expressive response builders:
 
 ```php
-class HomeController {
-    public function index() {
-        echo 'Welcome to your application!';
-        return true;
+namespace App\Http\Controllers;
+
+use Eyika\Atom\Framework\Http\Request;
+use Eyika\Atom\Framework\Support\Facade\Response;
+
+class HelloController extends Controller
+{
+    public function index(Request $request, string $name)
+    {
+        return Response::view('index', ['name' => $name]);
     }
 }
 ```
 
-Now, modify your `routes/web.php` or `routes/api.php` to use the controller:
+Now point a route at the controller in `routes/web.php` or `routes/api.php`:
 
 ```php
-Route::get('/', [HomeController::class, 'index']);
+use App\Http\Controllers\HelloController;
+use Eyika\Atom\Framework\Http\Route;
+
+Route::get('/name/{name}', [HelloController::class, 'index']);
 ```
 
-Or
+This will return the `index` method's output when you visit `/name/{something}`.
 
-```php
-$router = new Eyika\Atom\Framework\Http\Route();
-$router->get('/', [HomeController::class, 'index']);
+## Project Structure
+
+A freshly created app is organized like this (framework internals live in `vendor/eyika/atom-framework`; the directories below are yours to edit):
+
+```
+my-app/
+├── app/
+│   ├── Console/            # Console command + job classes, Console\Kernel
+│   ├── Exceptions/         # Handler.php — app exception handling
+│   ├── Http/
+│   │   ├── Controllers/    # Web + Api controllers
+│   │   ├── Middlewares/    # App-level middleware (TrimStrings, HandleCors, …)
+│   │   └── Kernel.php      # Global middleware, groups, aliases, priority
+│   ├── Mail/               # Mailable classes
+│   ├── Models/             # Eloquent-style models
+│   └── Providers/          # App-owned service providers (see below)
+├── bootstrap/app.php       # Creates + returns the Application instance
+├── config/                 # app.php, database.php, cache.php, mail.php, …
+├── database/
+│   ├── migrations/
+│   └── seeders/
+├── public/index.php        # HTTP entry point
+├── resources/views/        # Blade templates
+├── routes/                 # web.php, api.php, console.php
+├── storage/                # Logs, cache, sessions, compiled views
+├── tests/                  # Your test suite
+└── artisan                 # CLI entry point
 ```
 
-This will return the `index` method's output when you visit the home route.
+Note that `app/Providers/` now exists and is **app-owned**. The framework no longer hardcodes any `\App\Providers\*` class — your providers are listed in `config/app.php` under `'providers'` and boot on every request. A new app ships `Cache`, `Route`, `Console`, `Event`, `View`, `Database` and `App` service providers. See [Configuration](configuration) for how the provider list is registered.
 
 ## What's Next?
 
-- Learn more about [Routing](routing) to define custom routes.
+- Learn more about [Routing](routing) to define custom routes and route maps.
 - Explore [Middleware](middleware) to handle requests before they reach your controllers.
 - Dive into [Views](views) for rendering dynamic content.

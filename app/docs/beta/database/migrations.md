@@ -2,7 +2,7 @@
 
 ## Introduction
 
-In Atom, migrations and seeds are managed using a system inspired by **Phinx**, with commands styled after **Laravel** for a familiar and developer-friendly experience. Migrations handle database schema changes, while seeds allow you to populate the database with initial or dummy data.
+In Atom, migrations and seeds are managed with a **Laravel-style schema builder** and CLI. Migrations handle database schema changes with the fluent `Schema` + `Blueprint` API, while seeds allow you to populate the database with initial or dummy data. All commands are run through `php artisan`.
 
 ---
 
@@ -14,40 +14,60 @@ Migrations provide version control for your database schema. They enable you to 
 
 To create a new migration, run the following command:
 ```bash
-php artisan make:migration CreateUsersTable
+php artisan make:migration create_users_table
 ```
 
-This will generate a migration file in the `database/migrations` directory. The file name will include a timestamp to ensure order.
+This generates a migration file in the `database/migrations` directory. The file name is prefixed with a timestamp (`Y_m_d_His`) to ensure ordering.
 
 ### Writing a Migration
 
-Migrations in Atom use the Phinx `AbstractMigration` class. Below is an example of a migration to create a `users` table:
+A migration returns an anonymous class extending the framework `Migration` base class, with `up()` and `down()` methods. Schema changes are expressed with `Schema` and a `Blueprint` callback:
 
 ```php
-use Phinx\Migration\AbstractMigration;
+use Eyika\Atom\Framework\Support\Database\Schema\Migrations\Migration;
+use Eyika\Atom\Framework\Support\Database\Schema\Blueprint;
+use Eyika\Atom\Framework\Support\Database\Schema\Schema;
 
-class CreateUsersTable extends AbstractMigration
+return new class extends Migration
 {
-    public function change()
+    public function up(): void
     {
-        $table = $this->table('users');
-        $table->addColumn('name', 'string', ['limit' => 255])
-              ->addColumn('email', 'string', ['limit' => 255])
-              ->addColumn('password', 'string', ['limit' => 255])
-              ->addColumn('created_at', 'timestamp', ['default' => 'CURRENT_TIMESTAMP'])
-              ->addColumn('updated_at', 'timestamp', ['null' => true, 'default' => null])
-              ->addIndex(['email'], ['unique' => true])
-              ->create();
+        Schema::create('users', function (Blueprint $table) {
+            $table->id();
+            $table->string('name', 255);
+            $table->string('email', 255)->unique();
+            $table->string('password')->nullable();
+            $table->boolean('is_active')->default(true);
+            $table->unsignedBigInteger('role_id')->default(1);
+            $table->foreign('role_id')->references('id')->on('roles')->onDelete('cascade');
+            $table->timestamp('deleted_at')->nullable();
+            $table->timestamps();
+        });
     }
-}
+
+    public function down(): void
+    {
+        Schema::dropIfExists('users');
+    }
+};
 ```
 
-#### Key Methods in Migrations
-- **`create()`**: Creates a new table.
-- **`addColumn()`**: Adds a column to the table.
-- **`addIndex()`**: Adds an index to the table.
-- **`change()`**: Used to define reversible migrations (recommended).
-- **`up()`** and **`down()`**: Used for defining one-way migrations.
+#### Common `Blueprint` column methods
+- **`id()`**: Adds an auto-incrementing primary key.
+- **`string($name, $length = 255)`**: Adds a `VARCHAR` column.
+- **`integer()` / `unsignedBigInteger()`**: Integer columns.
+- **`boolean()`**, **`text()`**, **`json()`**, **`decimal()`**, **`enum()`**, **`timestamp()`**: Additional column types.
+- **`timestamps()`**: Adds `created_at` and `updated_at`.
+- **`softDeletes()`**: Adds a nullable `deleted_at` column.
+- **Modifiers**: `->nullable()`, `->default($value)`, `->unique()`.
+- **`foreign($col)->references($col)->on($table)->onDelete(...)`**: Foreign-key constraint.
+- **`unique([...])` / `index([...])`**: Composite index/constraint.
+
+#### Schema helpers
+- **`Schema::create($table, $callback)`**: Creates a new table.
+- **`Schema::table($table, $callback)`**: Alters an existing table.
+- **`Schema::dropIfExists($table)`**: Drops a table if present.
+- **`Schema::hasTable($table)` / `Schema::columnExists($table, $col)`**: Introspection helpers.
 
 ---
 
@@ -58,21 +78,30 @@ To apply all pending migrations, use:
 php artisan migrate
 ```
 
-To migrate up to a specific version:
+To run migrations and immediately seed the database:
 ```bash
-php artisan migrate --target=20241223010101
+php artisan migrate --seed
 ```
 
 ### Rolling Back Migrations
 
-To undo the last batch of migrations:
+To roll every migration back:
 ```bash
-php artisan migrate:rollback
+php artisan migrate:reset
 ```
 
-To rollback to a specific version:
+To reset and then re-run all migrations (optionally seeding):
 ```bash
-php artisan migrate:rollback --target=20241223010101
+php artisan migrate:refresh
+php artisan migrate:refresh --seed
+
+# Roll back and re-run only the last N batches
+php artisan migrate:refresh --step=1
+```
+
+To drop all tables and re-run every migration from scratch:
+```bash
+php artisan migrate:fresh
 ```
 
 ### Checking Migration Status
@@ -86,7 +115,7 @@ php artisan migrate:status
 
 ## Seeds
 
-Seeds allow you to populate your database with initial or test data. They are particularly useful for testing and development environments.
+Seeds allow you to populate your database with initial or test data. They are particularly useful for testing and development environments. Seeders live in `database/seeds`.
 
 ### Creating a Seeder
 
@@ -95,49 +124,50 @@ To create a new seeder, use the following command:
 php artisan make:seeder UsersTableSeeder
 ```
 
-This will generate a seeder file in the `database/seeds` directory.
+This generates a seeder file in the `database/seeds` directory.
 
 ### Writing a Seeder
 
-Seeders extend the Phinx `AbstractSeed` class. Below is an example seeder to populate the `users` table:
+Seeders extend the framework `Seeder` class and implement a `run()` method. Use the inherited `insert($table, $data)` helper (which writes each row via `DB::table($table)->insert(...)`), or call models directly:
 
 ```php
-use Phinx\Seed\AbstractSeed;
+namespace Database\Seeds;
 
-class UsersTableSeeder extends AbstractSeed
+use Eyika\Atom\Framework\Support\Database\Seeder\Seeder;
+
+class UsersTableSeeder extends Seeder
 {
-    public function run()
+    public function run(): void
     {
         $data = [
             [
-                'name' => 'John Doe',
-                'email' => 'johndoe@example.com',
-                'password' => password_hash('password', PASSWORD_BCRYPT),
+                'name'       => 'John Doe',
+                'email'      => 'johndoe@example.com',
+                'password'   => password_hash('password', PASSWORD_BCRYPT),
                 'created_at' => date('Y-m-d H:i:s'),
             ],
             [
-                'name' => 'Jane Smith',
-                'email' => 'janesmith@example.com',
-                'password' => password_hash('password', PASSWORD_BCRYPT),
+                'name'       => 'Jane Smith',
+                'email'      => 'janesmith@example.com',
+                'password'   => password_hash('password', PASSWORD_BCRYPT),
                 'created_at' => date('Y-m-d H:i:s'),
             ],
         ];
 
-        $this->table('users')->insert($data)->save();
+        $this->insert('users', $data);
     }
 }
 ```
 
 #### Key Methods in Seeders
-- **`table()`**: Targets a specific table.
-- **`insert()`**: Inserts data into the table.
-- **`save()`**: Saves the data to the database.
+- **`run()`**: Entry point, invoked by the seeder runner.
+- **`insert($table, $data)`**: Inserts each row of `$data` into `$table`.
 
 ---
 
 ### Running Seeders
 
-To run all seeders, use:
+To run all seeders in `database/seeds`, use:
 ```bash
 php artisan db:seed
 ```
@@ -154,9 +184,11 @@ php artisan db:seed --class=UsersTableSeeder
 | Command                             | Description                                           |
 |-------------------------------------|-------------------------------------------------------|
 | `php artisan make:migration`        | Create a new migration file.                          |
-| `php artisan migrate`               | Run all pending migrations.                           |
-| `php artisan migrate:rollback`      | Rollback the last batch of migrations.                |
+| `php artisan migrate`               | Run all pending migrations (`--seed` to also seed).   |
 | `php artisan migrate:status`        | Check the status of migrations.                       |
+| `php artisan migrate:reset`         | Roll back all migrations.                             |
+| `php artisan migrate:refresh`       | Reset and re-run all migrations (`--step`, `--seed`). |
+| `php artisan migrate:fresh`         | Drop all tables and re-run every migration.           |
 | `php artisan make:seeder`           | Create a new seeder file.                             |
 | `php artisan db:seed`               | Run all seeders.                                      |
 | `php artisan db:seed --class=Class` | Run a specific seeder by class name.                  |
@@ -165,8 +197,8 @@ php artisan db:seed --class=UsersTableSeeder
 
 ## Best Practices
 
-1. **Atomic Migrations**: Ensure each migration handles a single schema change.
-2. **Reversible Migrations**: Use the `change()` method for migrations whenever possible.
+1. **Atomic Migrations**: Ensure each migration handles a single, focused schema change.
+2. **Reversible Migrations**: Always implement `down()` so a migration can be rolled back.
 3. **Test Before Production**: Test migrations and seeds in a staging environment before running them in production.
 4. **Secure Seeds**: Avoid including sensitive data in seeds.
 5. **Version Control**: Commit your migrations and seeds to version control to track changes.
@@ -175,4 +207,4 @@ php artisan db:seed --class=UsersTableSeeder
 
 ## Conclusion
 
-Atom’s migration and seeding system, based on Phinx, provides a structured and reliable way to manage database changes and populate data. By leveraging familiar Laravel-style commands, Atom ensures a smooth developer experience while maintaining the power and flexibility of Phinx.
+Atom's migration and seeding system provides a structured and reliable way to manage database changes and populate data. With a fluent `Schema` builder and familiar Laravel-style `php artisan` commands, Atom keeps schema management expressive, reversible, and easy to reason about.

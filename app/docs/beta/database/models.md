@@ -1,6 +1,6 @@
 # Model Query Builder In Atom
 
-The Model Query Builder provides a fluent interface for interacting with your database models, enabling you to perform CRUD operations and build complex queries.
+The Model Query Builder provides a fluent interface for interacting with your database models, enabling you to perform CRUD operations and build complex queries. Multi-row reads return a **Collection**, and large result sets can be streamed lazily via the database cursor.
 
 ---
 
@@ -9,10 +9,12 @@ The Model Query Builder provides a fluent interface for interacting with your da
 1. [Initialization](#initialization)
 2. [CRUD Operations](#crud-operations)
 3. [Query Building](#query-building)
-4. [Model Events](#model-events)
-5. [Aggregates](#aggregates)
-6. [Pagination](#pagination)
-7. [Dynamic Methods](#dynamic-methods)
+4. [Collections](#collections)
+5. [Streaming Large Results](#streaming-large-results)
+6. [Aggregates](#aggregates)
+7. [Pagination](#pagination)
+8. [Model Events & Observers](#model-events--observers)
+9. [Dynamic Methods](#dynamic-methods)
 
 ---
 
@@ -21,11 +23,28 @@ The Model Query Builder provides a fluent interface for interacting with your da
 ### Creating a Model Instance
 
 ```php
-$model = new Model(['key' => 'value'], $childModel);
+$user = new User(['name' => 'John Doe']);
 ```
 
 - **$values** *(array)*: Initial attributes for the model.
-- **$child** *(self | UserModelInterface)*: Optional child model.
+
+A model declares its writable columns and casts as class **constants** (`fillable`, `guarded`, `casts`), while `table` and `primaryKey` are properties:
+
+```php
+use Eyika\Atom\Framework\Support\Database\Model;
+
+class User extends Model
+{
+    public $table = 'users';
+    public $primaryKey = 'id';
+
+    protected const fillable = ['id', 'name', 'email', 'created_at', 'updated_at'];
+    protected const guarded  = ['deleted_at'];
+    protected const casts    = ['id' => 'int', 'is_active' => 'boolean', 'meta' => 'array'];
+}
+```
+
+Static calls such as `User::find(...)` are proxied to a fresh builder instance; `User::getBuilder()` returns that instance explicitly if you prefer to build a chain by hand.
 
 ---
 
@@ -34,25 +53,29 @@ $model = new Model(['key' => 'value'], $childModel);
 ### Create a Model
 
 ```php
-$model = Model::getBuilder()->create(['key' => 'value'], $isProtected, $select);
+$model = User::create(['name' => 'John', 'email' => 'john@example.com'], $isProtected, $select);
 ```
 
 - **$values** *(array)*: Data to initialize the model.
-- **$isProtected** *(bool)*: Whether to hide protected attributes. Default: `true`.
+- **$isProtected** *(bool)*: Whether to hide guarded attributes. Default: `true`.
 - **$select** *(array)*: Attributes to include in the result.
+
+Returns the created model, or `false` on failure.
 
 ### Retrieve Models
 
 #### Find a Model by ID
 
 ```php
-$model = Model::getBuilder()->find($id, $isProtected);
+$model = User::find($id, $isProtected);
 ```
+
+Returns the model, or **`null`** when no row matches.
 
 #### Find a Model or Execute Callback
 
 ```php
-$model = Model::getBuilder()->findOr($id, $isProtected, function () {
+$model = User::findOr($id, $isProtected, function () {
     // Handle not found
 });
 ```
@@ -60,24 +83,28 @@ $model = Model::getBuilder()->findOr($id, $isProtected, function () {
 #### Get All Models
 
 ```php
-$models = Model::getBuilder()->all($isProtected, $select);
+$models = User::all($isProtected, $select);
+// or the alias:
+$models = User::get($isProtected, $select);
 ```
+
+Returns a **Collection** of models, or **`false`** when nothing matches.
 
 ---
 
 ### Update a Model
 
 ```php
-$updatedModel = Model::getBuilder()->update(['key' => 'value'], $id, $isProtected);
+$updatedModel = User::update(['key' => 'value'], $id, $isProtected);
 ```
-
----
 
 ### Delete a Model
 
 ```php
-$isDeleted = Model::getBuilder()->delete($id);
+$isDeleted = User::delete($id);
 ```
+
+A `delete()` with neither an id nor a `where()` filter is refused (it would delete every row). Models with soft deletes set `deleted_at` instead of removing the row; use `restore($id)` to bring one back.
 
 ---
 
@@ -88,48 +115,120 @@ $isDeleted = Model::getBuilder()->delete($id);
 #### Where Clauses
 
 ```php
-$query = Model::getBuilder()->where('column', '=', 'value');
-$query = Model::getBuilder()->whereIn('column', ['value1', 'value2']);
-$query = Model::getBuilder()->whereLike('column', '%value%');
-$query = Model::getBuilder()->whereNo('column', 'value');
-$query = Model::getBuilder()->whereNotIn('column', ['value1', 'value2']);
-$query = Model::getBuilder()->whereNotLike('column', '%value%');
+$query = User::where('column', '=', 'value');
+$query = User::whereIn('column', ['value1', 'value2']);
+$query = User::whereLike('column', '%value%');
+$query = User::whereNotIn('column', ['value1', 'value2']);
+$query = User::whereNotLike('column', '%value%');
+$query = User::whereBetween('column', [1, 10]);
+$query = User::whereNotBetween('column', [1, 10]);
 
-$query = Model::getBuilder()->whereLessThan('column', 'value');
-$query = Model::getBuilder()->whereGreaterThan('column', 'value');
-$query = Model::getBuilder()->whereLessThanOrEqual('column', 'value');
-$query = Model::getBuilder()->whereGreaterThanOrEqual('column', 'value');
-$query = Model::getBuilder()->whereEqual('column', 'value');
-$query = Model::getBuilder()->whereNotEqual('column', 'value');
+$query = User::whereLessThan('column', 'value');
+$query = User::whereGreaterThan('column', 'value');
+$query = User::whereLessThanOrEqual('column', 'value');
+$query = User::whereGreaterThanOrEqual('column', 'value');
+$query = User::whereEqual('column', 'value');
+$query = User::whereNotEqual('column', 'value');
 
-$query = Model::getBuilder()->whereNull('column');
-$query = Model::getBuilder()->whereNotNull('column');
-$query = Model::getBuilder()->orWhere('column', 'operatorOrValue', 'value');
-$query = Model::getBuilder()->orWhereLike('column', 'value');
-$query = Model::getBuilder()->orWhereNotLike('column', 'value');
-$query = Model::getBuilder()->orWhereLessThan('column', 'value');
-$query = Model::getBuilder()->orWhereGreaterThan('column', 'value');
+$query = User::whereNull('column');
+$query = User::whereNotNull('column');
 
-$query = Model::getBuilder()->orWhereLessThanOrEqual('column', 'value');
-$query = Model::getBuilder()->orWhereGreaterThanOrEqual('column', 'value');
-$query = Model::getBuilder()->orWhereEqual('column', 'value');
-$query = Model::getBuilder()->orWhereNotEqual('column', 'value');
-$query = Model::getBuilder()->orWhereNull('column');
-$query = Model::getBuilder()->orWhereNotNull('column');
-$query = Model::getBuilder()->orWhereGreaterThan('column', 'value');
+$query = User::orWhere('column', 'operatorOrValue', 'value');
+$query = User::orWhereLike('column', 'value');
+$query = User::orWhereNotLike('column', 'value');
+$query = User::orWhereLessThan('column', 'value');
+$query = User::orWhereGreaterThan('column', 'value');
+$query = User::orWhereLessThanOrEqual('column', 'value');
+$query = User::orWhereGreaterThanOrEqual('column', 'value');
+$query = User::orWhereEqual('column', 'value');
+$query = User::orWhereNotEqual('column', 'value');
+$query = User::orWhereNull('column');
+$query = User::orWhereNotNull('column');
 ```
+
+Where clauses are chainable and terminate in a read such as `->get()`, `->first()`, or `->all()`:
+
+```php
+$recent = User::where('is_active', true)
+    ->orderBy('created_at', 'DESC')
+    ->limit(10)
+    ->get();
+```
+
+#### Joins
+
+```php
+$query = User::join('roles', 'users.role_id', '=', 'roles.id');
+$query = User::leftJoin('roles', 'users.role_id', '=', 'roles.id');
+```
+
+`rightJoin` and `fullOuterJoin` are also available.
 
 #### Order By
 
+`orderBy` is a chained (instance) method — call it after another builder method or via `getBuilder()`:
+
 ```php
-$query = Model::getBuilder()->orderBy('column', 'DESC');
+$query = User::getBuilder()->orderBy('column', 'DESC');
 ```
 
 #### Limit and Offset
 
 ```php
-$query = Model::getBuilder()->limit(10)->offset(5);
+$query = User::limit(10)->offset(5);
 ```
+
+---
+
+## Collections
+
+Multi-row reads (`all()`, `get()`, relation results, `paginate()->collection()`) return a `Eyika\Atom\Framework\Support\Collections\Collection` — a Laravel-like collection with 100+ chainable methods. Because a Collection is iterable, countable, and array-accessible, existing `foreach`/`count()`/`[]` usage keeps working while gaining the fluent API.
+
+```php
+$users = User::all();
+
+$users->map(fn ($u) => $u->name);           // transform each item
+$users->filter(fn ($u) => $u->is_active);    // keep matching items
+$users->where('status', 'active');           // filter by attribute
+$users->pluck('email');                      // extract a single column
+$users->first();                             // first item (or null)
+$users->sortBy('name');                      // sort ascending by key
+$users->groupBy('role_id');                  // group into sub-collections
+$users->reduce(fn ($carry, $u) => $carry + $u->points, 0);
+$users->count();
+$users->toArray();                           // back to a plain array
+```
+
+Other commonly used methods include `each`, `keyBy`, `unique`, `values`, `chunk`, `take`, `contains`, `sum`, `max`, `min`, `whereIn`, `firstWhere`, and `sortByDesc`.
+
+### The `collect()` helper
+
+Wrap any array (for example, the plain rows returned by the raw `DB` builder) in a Collection:
+
+```php
+$collection = collect($rows);
+```
+
+---
+
+## Streaming Large Results
+
+For large scans, stream rows one at a time straight from the database cursor instead of loading the whole result set into memory. `cursor()` (and its alias `lazy()`) return a `LazyCollection`, which exposes the same fluent API but yields lazily:
+
+```php
+User::where('is_active', true)
+    ->cursor()
+    ->each(function ($user) {
+        // processed one row at a time — constant memory
+    });
+
+// lazy() is an alias for cursor()
+foreach (User::lazy() as $user) {
+    // ...
+}
+```
+
+The cursor is forward-only / single-pass. Because rows are streamed, `with()` eager-loading is **not** applied to a cursor query.
 
 ---
 
@@ -138,54 +237,92 @@ $query = Model::getBuilder()->limit(10)->offset(5);
 ### Count
 
 ```php
-$count = Model::getBuilder()->count('column');
+$count = User::count('column');
 ```
 
 ### Average
 
 ```php
-$average = Model::getBuilder()->avg('column');
+$average = User::avg('column');
 ```
 
 ### Max and Min
 
 ```php
-$max = Model::getBuilder()->max('column');
-$min = Model::getBuilder()->min('column');
+$max = User::max('column');
+$min = User::min('column');
 ```
+
+Additional aggregates are available: `sum`, `group_concat`, `var_pop`, `stddev`, `bit_and`, `bit_or`, and `bit_xor`. Use `increment('column', $step)` / `decrement('column', $step)` for atomic counter updates.
 
 ---
 
 ## Pagination
 
 ```php
-$paginated = Model::getBuilder()->paginate($currentPage, $recordsPerPage, $isProtected, $select);
+$paginated = User::paginate($currentPage, $recordsPerPage, $isProtected, $select);
 ```
 
 - **$currentPage** *(int)*: Current page number.
-- **$recordsPerPage** *(int)*: Number of records per page.
-- **$isProtected** *(bool)*: Whether to hide protected attributes.
+- **$recordsPerPage** *(int)*: Number of records per page (default 15).
+- **$isProtected** *(bool)*: Whether to hide guarded attributes.
 - **$select** *(array)*: Attributes to include in the result.
+
+`paginate()` returns a `PaginatedData` object (or `false` when there are no rows). It exposes the page items as a Collection plus paging metadata:
+
+```php
+$page = User::paginate(1, 15);
+
+$page->collection();     // current page's items as a Collection
+$page->each($callback);  // walk the items
+
+$page->toArray();
+// [
+//   'data'          => [...],   // page items
+//   'totalRecords'  => 128,
+//   'totalPages'    => 9,
+//   'recordsPerPage'=> 15,
+//   'currentPage'   => 1,
+//   'previousPage'  => null,    // URL, when applicable
+//   'nextPage'      => '...?page=2',
+// ]
+```
 
 ---
 
-## Model Events
+## Model Events & Observers
 
-- **boot**: Triggered when the model is initialized.
-- **creating**: Called before a model is created.
-- **created**: Called after a model is created.
-- **saving**: Triggered before saving a model.
-- **saved**: Triggered after saving a model.
-- **deleting**: Called before a model is deleted.
-- **deleted**: Called after a model is deleted.
+Models fire lifecycle events around reads and writes:
+`retrieved`, `creating`, `created`, `updating`, `updated`, `saving`, `saved`, `deleting`, `deleted` (plus `restoring` / `restored` for soft-delete restores). A "before" event (`creating`, `updating`, `saving`, `deleting`) whose listener returns `false` aborts the operation.
 
-Example:
+Register a listener by passing a callable to the matching static method:
 
 ```php
-Model::getBuilder()->creating($model, 'event', function ($model) {
-    // Logic before creating the model
+User::creating(function ($user) {
+    $user->uuid = Str::uuid();
+    // return false here to abort the insert
+});
+
+User::saved(function ($user) {
+    // e.g. bust a cache
 });
 ```
+
+### Observers
+
+Group related listeners into an **observer** class — a class whose methods are named after the events it wants to handle — and register it with `observe()`:
+
+```php
+class UserObserver
+{
+    public function creating($user) { /* ... */ }
+    public function deleted($user)  { /* ... */ }
+}
+
+User::observe(UserObserver::class);
+```
+
+Only the event methods the observer actually defines are wired up. See [Events](../advanced/events.md) for the application-wide event dispatcher and cross-cutting listeners.
 
 ---
 
@@ -204,7 +341,8 @@ $array = $model->toArray($guard, $select, $ignore);
 ### Attach Related Models
 
 ```php
-$model->with('RelatedModel');
+$user = User::getBuilder()->with('posts')->find(1);
+$posts = $user->posts;
 ```
 
 ### Execute Raw SQL
@@ -215,4 +353,4 @@ $result = $model->raw('SELECT * FROM table WHERE id = ?', [$id]);
 
 ---
 
-This documentation covers essential methods of the Query Builder for managing database models. For advanced use cases, refer to the source code or extend the base `Model` class.
+This documentation covers essential methods of the Model Query Builder. For advanced use cases, refer to the source code or extend the base `Model` class.
