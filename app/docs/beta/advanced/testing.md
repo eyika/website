@@ -209,37 +209,31 @@ Testing is a crucial aspect of software development that ensures your applicatio
    - **`$this->postJson($uri, $json = [], $headers = [])`**: Dispatch a POST with a JSON body.
    - **`$this->call($method, $uri, $query, $body, $headers, $cookies, $json)`**: Full control over every part of the request.
 
-   Example:
+   Example (hits your app's real `POST /users` route):
    ```php
    public function test_create_user_returns_created(): void
    {
-       $this->withRoutes(function () {
-           Route::post('/api/users', [UserController::class, 'create']);
-       });
-
-       $this->postJson('/api/users', ['name' => 'John Doe'])
+       $this->postJson('/users', ['name' => 'John Doe'])
+           ->assertCreated()
            ->assertJsonFragment(['message' => 'User registered successfully']);
    }
    ```
 
 ### 9. **Testing State-Dependent Routes**
-   Some routes depend on session state (for example, an authenticated user). The integration base case lets you bind a lightweight in-memory session double before dispatching, so protected routes can read the state they expect without a real session backend.
+   Some routes depend on session state (for example, an authenticated user). Use `bindSession()` to seed a lightweight in-memory session before dispatching, so protected routes can read the state they expect without a real session backend.
 
    **Key Concepts:**
-   - **`$this->bindSession($data)`**: Bind an in-memory session pre-populated with the given data.
-   - **`$this->bindRequest($method, $uri, $input, $headers)`**: Fabricate and bind a `Request` without dispatching (for code that resolves the current request via the facade).
+   - **`$this->bindSession($data)`**: Bind an in-memory session pre-populated with the given data. The double supports `has`/`get`/`set`/`forget`/`all`.
 
-   Example:
+   Example (hits your app's real `/dashboard` route, which reads the session):
    ```php
    public function test_dashboard_reads_logged_in_user(): void
    {
        $this->bindSession(['user_id' => 1]);
 
-       $this->withRoutes(function () {
-           Route::get('/dashboard', fn($request) => 'welcome back');
-       });
-
-       $this->get('/dashboard')->assertBodyContains('welcome back');
+       $this->get('/dashboard')
+           ->assertOk()
+           ->assertBodyContains('welcome back');
    }
    ```
 
