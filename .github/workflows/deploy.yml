@@ -5,10 +5,8 @@ name: Deploy docs to serv00
 # honours .git-ftp-include / .git-ftp-ignore and keeps the incremental .git-ftp.log state ON THE
 # SERVER — so this deploys exactly what a manual `git ftp push` would, only automatically.
 #
-# Required secrets — add these as **Repository secrets**, NOT Environment secrets
-# (Settings → Secrets and variables → Actions → "Repository secrets"). Environment secrets are
-# only injected when a job declares `environment:`, which this job intentionally does not — so
-# environment-scoped secrets arrive EMPTY and git-ftp fails with "Remote host not set".
+# Required secrets — stored in the "Deployment" GitHub Environment (the job declares
+# `environment: Deployment` below so they're injected; environment secrets are empty otherwise).
 #   FTP_URL       full FTPS URL incl. remote path, e.g. ftpes://s15.serv00.com/<remote-app-root>/
 #                 (use the SAME value your manual git config git-ftp.url uses)
 #   FTP_USERNAME  FTP account username
@@ -26,6 +24,7 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment: Deployment # inject the FTP_* secrets stored in this GitHub Environment
     steps:
       - uses: actions/checkout@v4
         with:
