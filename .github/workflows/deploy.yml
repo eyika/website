@@ -62,10 +62,34 @@ jobs:
           # then subsequent runs deploy only the changed files.
           git ftp push --insecure --auto-init --verbose
 
+      # Verify the SSH secrets actually reached the job BEFORE invoking the SSH action. An empty
+      # SSH_PASSWORD is exactly what produces appleboy's "attempted methods [none]" handshake
+      # error — the action sends no credential at all. If anything is missing we WARN and skip
+      # (the docs are already deployed above) rather than fail the whole run red.
+      - name: Check SSH secrets present
+        id: sshcheck
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USERNAME: ${{ secrets.SSH_USERNAME }}
+          SSH_PASSWORD: ${{ secrets.SSH_PASSWORD }}
+        run: |
+          missing=
+          [ -z "${SSH_HOST:-}" ] && missing="$missing SSH_HOST"
+          [ -z "${SSH_USERNAME:-}" ] && missing="$missing SSH_USERNAME"
+          [ -z "${SSH_PASSWORD:-}" ] && missing="$missing SSH_PASSWORD"
+          if [ -n "$missing" ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Skipping composer-update: empty SSH secret(s) →$missing. Add them to the 'Deployment' environment. ('attempted methods [none]' means the password never reached the SSH action.)"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+            echo "SSH secrets present (host ${#SSH_HOST} chars, user ${#SSH_USERNAME} chars, password set)."
+          fi
+
       # Keep the server's (FTP-ignored) vendor/ in sync with the just-deployed app code. dev-main
       # is a moving branch, so `composer update` re-resolves it (composer.lock isn't deployed, so
       # `composer install` can't) — this realigns MiddlewareInterface etc. with the app.
       - name: Sync vendor on serv00 (composer update)
+        if: steps.sshcheck.outputs.ready == 'true'
         uses: appleboy/ssh-action@v1.2.2
         with:
           host: ${{ secrets.SSH_HOST }}
