@@ -100,7 +100,7 @@ The name **must** be PascalCase. See [Model Factories](database/factories) for t
 php artisan make:command SyncQuotes
 ```
 
-Writes `app/Console/Commands/SyncQuotes.php` extending `Command`, pre-filled with a `$signature`, `$description`, and a `handle(): bool` method. Edit the `$signature` to your own command name (e.g. `app:sync-quotes`) — see [Registering your own commands](#8-registering-your-own-commands) below.
+Writes `app/Console/Commands/SyncQuotes.php` extending `Command`, pre-filled with a `$signature`, `$description`, and a `handle(): bool` method. Edit the `$signature` to your own command name (e.g. `app:sync-quotes`) — see [Registering your own commands](#9-registering-your-own-commands) below.
 
 ### `make:middleware`
 
@@ -303,7 +303,7 @@ Runs the `DatabaseSeeder`, which resolves and executes your seeders.
 - `--path=` — the directory to load seeders from.
 - `--force=` — force seeding (e.g. in production).
 
-Generate seeders with [`make:seeder`](#make-seeder).
+Generate seeders with [`make:seeder`](#makeseeder).
 
 ---
 
@@ -418,7 +418,7 @@ Starts the job runner. It connects to the `jobs` table (MySQL-backed) on the `de
 
 > This is a **drain-and-exit** worker, not a long-running daemon loop. To keep processing continuously, run it under a supervisor or on a schedule.
 
-Jobs are defined with the `ShouldQueue` trait (scaffold one with [`make:job`](#make-job)) and dispatched from your code:
+Jobs are defined with the `ShouldQueue` trait (scaffold one with [`make:job`](#makejob)) and dispatched from your code:
 
 ```php
 use App\Jobs\ProcessPayment;
@@ -477,7 +477,7 @@ php artisan storage:unlink
 
 Removes the symlinks declared in `filesystems.links` (deleting the linked directory entries). Use it before re-running `storage:link` if a link needs to be recreated.
 
-See [Filesystem & Storage](storage) for the `Storage` facade and disk configuration.
+See [Filesystem & Storage](filesystem) for the `Storage` facade and disk configuration.
 
 ---
 

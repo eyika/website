@@ -324,7 +324,7 @@ class UserObserver
 User::observe(UserObserver::class);
 ```
 
-Only the event methods the observer actually defines are wired up. See [Events](../advanced/events.md) for the application-wide event dispatcher and cross-cutting listeners.
+Only the event methods the observer actually defines are wired up. See [Events](../advanced/events) for the application-wide event dispatcher and cross-cutting listeners.
 
 ---
 

@@ -267,7 +267,7 @@ VerifyEmail::send($user->email, $user->name, 'Verify your email', $code);
 
 ## Email Templates
 
-`buildHtml()` renders through Atom's lightweight (Twig-like) template engine, searching the directories in `config('mail.markdown.paths')` — by default `resources/views/mail`. Template variables use the same `{{ ... }}` echo syntax described in the [Views](views.md) documentation.
+`buildHtml()` renders through Atom's lightweight (Twig-like) template engine, searching the directories in `config('mail.markdown.paths')` — by default `resources/views/mail`. Template variables use the same `{{ ... }}` echo syntax described in the [Views](views) documentation.
 
 ```html
 <!-- resources/views/mail/verify.html -->

@@ -4,7 +4,7 @@
 
 Atom framework provides a robust and intuitive database layer that simplifies interactions with databases. Atom supports raw SQL queries, a fluent query builder, and the Active Record pattern, giving developers the flexibility to choose the best approach for their needs.
 
-Multi-row reads from models return a **Collection** (`Eyika\Atom\Framework\Support\Collections\Collection`) — a Laravel-like collection with 100+ chainable methods (`map`, `filter`, `pluck`, `where`, `first`, `sortBy`, `groupBy`, …). See [Model Query Builder](./models.md) and [Query Builder](./query-builder.md) for details.
+Multi-row reads from models return a **Collection** (`Eyika\Atom\Framework\Support\Collections\Collection`) — a Laravel-like collection with 100+ chainable methods (`map`, `filter`, `pluck`, `where`, `first`, `sortBy`, `groupBy`, …). See [Model Query Builder](models) and [Query Builder](query-builder) for details.
 
 ---
 
@@ -59,7 +59,7 @@ $users = DB::table('users')->get();
 $user = DB::table('users')->where('id', 1)->first();
 ```
 
-> The raw `DB` builder returns plain arrays. Wrap a result in `collect($users)` to get a fluent [Collection](./query-builder.md#collections), or use a [Model](./models.md) whose reads already return collections.
+> The raw `DB` builder returns plain arrays. Wrap a result in `collect($users)` to get a fluent [Collection](query-builder#collections), or use a [Model](models) whose reads already return collections.
 
 ### Inserting Data
 ```php
@@ -183,7 +183,7 @@ $user->delete();
 
 ## Migrations
 
-Migrations provide a version control system for your database schema, allowing you to manage schema changes programmatically with a Laravel-style schema builder. See the [Migrations and Seeds](./migrations.md) guide for the full reference.
+Migrations provide a version control system for your database schema, allowing you to manage schema changes programmatically with a Laravel-style schema builder. See the [Migrations and Seeds](migrations) guide for the full reference.
 
 ### Creating a Migration
 

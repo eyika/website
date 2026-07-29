@@ -2,7 +2,7 @@
 
 This documentation provides an overview of the `DB` class, which serves as a query builder for interacting with a database. The class provides methods for performing various database operations, including transactions, CRUD operations, pagination, and query filtering.
 
-The `DB` builder returns plain PHP arrays. For a fluent, Laravel-like result API, wrap those arrays with `collect(...)`, or use a [Model](./models.md) whose reads return [Collections](./models.md#collections) natively.
+The `DB` builder returns plain PHP arrays. For a fluent, Laravel-like result API, wrap those arrays with `collect(...)`, or use a [Model](models) whose reads return [Collections](models#collections) natively.
 
 ---
 
@@ -233,4 +233,4 @@ $active = collect(DB::table('users')->get())
     ->pluck('email');
 ```
 
-Model reads return a [Collection](./models.md#collections) directly, and can stream large result sets lazily with `cursor()` / `lazy()`. See the [Model Query Builder](./models.md) for the collection-native API.
+Model reads return a [Collection](models#collections) directly, and can stream large result sets lazily with `cursor()` / `lazy()`. See the [Model Query Builder](models) for the collection-native API.

@@ -34,7 +34,7 @@ class OrderShipped implements ShouldBroadcast
 }
 ```
 
-Dispatch it through the event system exactly like any other event (see [Events](events)):
+Dispatch it through the event system exactly like any other event (see [Events](advanced/events)):
 
 ```php
 event(new OrderShipped(42, 'shipped'));

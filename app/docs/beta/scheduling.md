@@ -198,7 +198,7 @@ Notice that anything needing a precise time uses a raw cron expression, while th
 1. **One cron entry.** Only `schedule:run` goes in the system crontab; everything else is PHP.
 2. **Use raw expressions for exact times.** The `daily()`/`hourly()` helpers ignore any time argument — reach for a `'m h * * *'` expression when the minute or hour matters.
 3. **Keep scheduled commands fast and idempotent.** `schedule:run` runs them in-process, one after another; a slow command delays the ones after it.
-4. **Schedule `queue:work`.** Because the queue worker drains and exits, running it on a short interval (e.g. `everyTwoMinutes()`) is the intended way to process background jobs. See the [Queues & Jobs](queue.md) docs.
+4. **Schedule `queue:work`.** Because the queue worker drains and exits, running it on a short interval (e.g. `everyTwoMinutes()`) is the intended way to process background jobs. See the [Queues & Jobs](queue) docs.
 5. **Validate custom expressions.** An invalid cron string throws — test new expressions before deploying.
 
 ---

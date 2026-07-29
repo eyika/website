@@ -12,10 +12,12 @@ return [
         'controllers' => 'Controllers',
         'requests' => 'Requests',
         'validation' => 'Validation',
+        'responses' => 'Responses',
         'views' => 'Views',
 
         'database' => [
             'index' => 'Database',
+            'drivers' => 'Drivers & Grammars',
             'migrations' => 'Migrations',
             'query-builder' => 'Query Builder',
             'models' => 'Models',
@@ -24,6 +26,7 @@ return [
 
         'mail' => 'Mail',
         'queue' => 'Queues & Jobs',
+        'cache' => 'Cache',
         'scheduling' => 'Task Scheduling',
         'filesystem' => 'Filesystem',
         'broadcasting' => 'Broadcasting',
@@ -35,9 +38,23 @@ return [
             'index' => 'Advanced',
             'service-container' => 'Service Container',
             'events' => 'Event System',
-            'caching' => 'Caching',
             'security' => 'Security',
             'testing' => 'Testing',
+        ],
+
+        'extending' => [
+            'index' => 'Extending the Framework',
+            'middleware' => 'Custom Middleware',
+            'service-providers' => 'Service Providers',
+            'commands' => 'Custom Commands',
+            'jobs' => 'Custom Jobs',
+            'database-grammars' => 'Database Grammars',
+            'auth-guards' => 'Auth Guards',
+        ],
+
+        'packages' => [
+            'index' => 'Official Packages',
+            'writing' => 'Writing a Package',
         ],
 
         'contributing' => 'Contributing',

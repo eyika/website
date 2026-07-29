@@ -14,7 +14,7 @@ Welcome to the Advanced Concepts section! This page focuses on the critical area
    - CSRF Protection and Validation
 
 ## 2. **Caching**
-   See [Caching](caching).
+   See [Caching](../cache).
    - PSR-6 cache and the `Cache` facade
    - Cache Drivers and Configuration (array, file, database, redis, apc, memcached, dynamodb)
    - Storing, Retrieving, and Forgetting Items
