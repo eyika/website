@@ -2,6 +2,8 @@
 
 The Model Query Builder provides a fluent interface for interacting with your database models, enabling you to perform CRUD operations and build complex queries. Multi-row reads return a **Collection**, and large result sets can be streamed lazily via the database cursor.
 
+> **`getBuilder()` is optional.** Every query method can be called **directly on the model** — `User::where('active', true)->first()`, `User::find(1)`, `User::create([...])`. Static calls are transparently proxied to a fresh builder, so `User::where(...)` and `User::getBuilder()->where(...)` are equivalent. Prefer the shorter direct form; reach for `getBuilder()` only when you want the builder instance up front (e.g. to start a chain with an instance-only method like `orderBy()` or `with()`).
+
 ---
 
 ## Table of Contents

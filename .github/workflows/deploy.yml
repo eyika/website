@@ -1,0 +1,47 @@
+name: Deploy docs to serv00
+
+# Publishes the site to the serv00 host over FTPS on every push to main, so the docs no longer
+# drift behind the repo. Uses git-ftp (the same tool as the manual git-ftp-commands.txt), which
+# honours .git-ftp-include / .git-ftp-ignore and keeps the incremental .git-ftp.log state ON THE
+# SERVER — so this deploys exactly what a manual `git ftp push` would, only automatically.
+#
+# Required repository secrets (Settings → Secrets and variables → Actions):
+#   FTP_URL       full FTPS URL incl. remote path, e.g. ftpes://s15.serv00.com/<remote-app-root>/
+#                 (use the SAME value your manual git config git-ftp.url uses)
+#   FTP_USERNAME  FTP account username
+#   FTP_PASSWORD  FTP account password
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy-serv00
+  cancel-in-progress: false # never abort a mid-flight upload
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # git-ftp diffs commits, so it needs full history
+
+      - name: Install git-ftp
+        run: sudo apt-get update && sudo apt-get install -y git-ftp
+
+      - name: Deploy via git-ftp (FTPS)
+        env:
+          FTP_URL: ${{ secrets.FTP_URL }}
+          FTP_USER: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          git config git-ftp.url "$FTP_URL"
+          git config git-ftp.user "$FTP_USER"
+          git config git-ftp.password "$FTP_PASSWORD"
+          # serv00's FTPS certificate does not verify (matches the manual `ssl:verify-certificate no`).
+          # --auto-init uploads everything on the very first run (no server-side .git-ftp.log yet),
+          # then subsequent runs deploy only the changed files.
+          git ftp push --insecure --auto-init --verbose
