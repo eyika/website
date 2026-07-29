@@ -1,9 +1,14 @@
-name: Deploy docs to serv00
+name: Deploy docs to serv00 (DEPRECATED — git-ftp)
 
-# Publishes the site to the serv00 host over FTPS on every push to main, so the docs no longer
-# drift behind the repo. Uses git-ftp (the same tool as the manual git-ftp-commands.txt), which
-# honours .git-ftp-include / .git-ftp-ignore and keeps the incremental .git-ftp.log state ON THE
-# SERVER — so this deploys exactly what a manual `git ftp push` would, only automatically.
+# DEPRECATED: serv00's FTP server aborts bulk transfers ("curl 451 / partial file"), which left
+# larger files truncated/empty on the host. Deployment moved to a git-pull model instead: a GitHub
+# push webhook hits /deploy/github (DeployController), which flags a serv00 cron (deploy.sh) that
+# runs `git pull` + composer. This workflow is kept as a manual-only fallback (workflow_dispatch)
+# and no longer runs on push. See deploy.sh + DeployController for the current path.
+#
+# --- original description ---
+# Publishes the site to the serv00 host over FTPS. Uses git-ftp, which honours
+# .git-ftp-include / .git-ftp-ignore and keeps the incremental .git-ftp.log state ON THE SERVER.
 #
 # This deploys APP CODE only. vendor/ is FTP-ignored, so after a framework bump (eyika/atom-framework
 # is a moving branch) you must refresh it manually — serv00 SSH is gated behind a 2FA OTP, which no
@@ -23,9 +28,7 @@ name: Deploy docs to serv00
 #   FTP_PASSWORD     FTP account password
 
 on:
-  push:
-    branches: [main]
-  workflow_dispatch: {}
+  workflow_dispatch: {} # manual-only fallback; push-triggered deploy is now the git webhook
 
 concurrency:
   group: deploy-serv00
