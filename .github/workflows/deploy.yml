@@ -5,12 +5,21 @@ name: Deploy docs to serv00
 # honours .git-ftp-include / .git-ftp-ignore and keeps the incremental .git-ftp.log state ON THE
 # SERVER — so this deploys exactly what a manual `git ftp push` would, only automatically.
 #
-# Required secrets — stored in the "Deployment" GitHub Environment (the job declares
-# `environment: Deployment` below so they're injected; environment secrets are empty otherwise).
-#   FTP_URL       full FTPS URL incl. remote path, e.g. ftpes://s15.serv00.com/<remote-app-root>/
-#                 (use the SAME value your manual git config git-ftp.url uses)
-#   FTP_USERNAME  FTP account username
-#   FTP_PASSWORD  FTP account password
+# After the FTP push it SSHes into the server and runs `composer update`, so the server's
+# vendor/ (which is FTP-ignored) never drifts from the deployed app code — the fix for the
+# "middleware signature must be compatible" fatals after a framework bump.
+#
+# Required secrets — all stored in the "Deployment" GitHub Environment (the job declares
+# `environment: Deployment` below so they're injected; environment secrets are empty otherwise):
+#   FTP_URL          full FTPS URL incl. remote path, e.g. ftpes://s15.serv00.com/<remote-app-root>/
+#                    (use the SAME value your manual git config git-ftp.url uses)
+#   FTP_USERNAME     FTP account username
+#   FTP_PASSWORD     FTP account password
+#   SSH_HOST         SSH host, e.g. s15.serv00.com
+#   SSH_USERNAME     SSH/account username, e.g. basttyydev
+#   SSH_PRIVATE_KEY  a private key whose PUBLIC key is in the server's ~/.ssh/authorized_keys
+#                    (generate: ssh-keygen -t ed25519 -f serv00_deploy; paste serv00_deploy here,
+#                     append serv00_deploy.pub to ~/.ssh/authorized_keys on the server)
 
 on:
   push:
@@ -41,7 +50,7 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "${FTP_URL:-}" ]; then
-            echo "::error::FTP_URL is empty — the secrets did not reach this job. Add FTP_URL / FTP_USERNAME / FTP_PASSWORD as REPOSITORY secrets (Settings → Secrets and variables → Actions → 'Repository secrets'), not Environment secrets."
+            echo "::error::FTP_URL is empty — the secrets did not reach this job. Confirm FTP_URL / FTP_USERNAME / FTP_PASSWORD exist in the 'Deployment' environment (Settings → Environments → Deployment), which this job targets via 'environment: Deployment'."
             exit 1
           fi
           git config git-ftp.url "$FTP_URL"
@@ -51,3 +60,23 @@ jobs:
           # --auto-init uploads everything on the very first run (no server-side .git-ftp.log yet),
           # then subsequent runs deploy only the changed files.
           git ftp push --insecure --auto-init --verbose
+
+      # Keep the server's (FTP-ignored) vendor/ in sync with the just-deployed app code. dev-main
+      # is a moving branch, so `composer update` re-resolves it (composer.lock isn't deployed, so
+      # `composer install` can't) — this realigns MiddlewareInterface etc. with the app.
+      - name: Sync vendor on serv00 (composer update)
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          script_stop: true
+          command_timeout: 15m
+          script: |
+            set -e
+            cd ~/domains/basttyydev.serv00.net/public_html
+            export COMPOSER_MEMORY_LIMIT=-1
+            # serv00 provides `composer`; fall back to a php composer.phar if it isn't on PATH.
+            if command -v composer >/dev/null 2>&1; then COMPOSER="composer"; else COMPOSER="php composer.phar"; fi
+            $COMPOSER update eyika/atom-framework -W --no-interaction --no-progress --prefer-dist
