@@ -15,12 +15,18 @@ name: Deploy docs to serv00
 #                    (use the SAME value your manual git config git-ftp.url uses)
 #   FTP_USERNAME     FTP account username
 #   FTP_PASSWORD     FTP account password
-# The post-FTP SSH step uses its OWN secrets so you can experiment with host/username/password
-# combinations independently of the FTP creds (serv00's SSH host/user may differ from FTP):
-#   SSH_HOST         SSH host, e.g. s15.serv00.com  (or ssh.serv00.com / your panel's SSH host)
+# The post-FTP SSH step uses its OWN secrets, independent of the FTP creds:
+#   SSH_HOST         SSH host, e.g. s15.serv00.com  (or your panel's SSH host)
 #   SSH_USERNAME     SSH login username
-#   SSH_PASSWORD     SSH login password
+#   SSH_KEY          PRIVATE key (OpenSSH format) whose public half is in the server's
+#                    ~/.ssh/authorized_keys — this is the reliable path on serv00, which
+#                    rejects the plain `password` auth method (hence "attempted methods [none]").
+#   SSH_PASSWORD     (fallback) only works if the host actually offers `password` auth
 #   SSH_PORT         (optional) SSH port; defaults to 22 if unset
+# Provide EITHER SSH_KEY (preferred) OR SSH_PASSWORD. Generate a key + register it on serv00:
+#   ssh-keygen -t ed25519 -f serv00_deploy -N ""      # creates serv00_deploy (+ .pub)
+#   ssh-copy-id -i serv00_deploy.pub USER@SSH_HOST     # keyboard-interactive login works here
+#   then paste the contents of serv00_deploy into the SSH_KEY secret.
 
 on:
   push:
@@ -71,18 +77,19 @@ jobs:
         env:
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_USERNAME: ${{ secrets.SSH_USERNAME }}
+          SSH_KEY: ${{ secrets.SSH_KEY }}
           SSH_PASSWORD: ${{ secrets.SSH_PASSWORD }}
         run: |
           missing=
           [ -z "${SSH_HOST:-}" ] && missing="$missing SSH_HOST"
           [ -z "${SSH_USERNAME:-}" ] && missing="$missing SSH_USERNAME"
-          [ -z "${SSH_PASSWORD:-}" ] && missing="$missing SSH_PASSWORD"
+          [ -z "${SSH_KEY:-}" ] && [ -z "${SSH_PASSWORD:-}" ] && missing="$missing SSH_KEY-or-SSH_PASSWORD"
           if [ -n "$missing" ]; then
             echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::Skipping composer-update: empty SSH secret(s) →$missing. Add them to the 'Deployment' environment. ('attempted methods [none]' means the password never reached the SSH action.)"
+            echo "::warning::Skipping composer-update: missing SSH secret(s) →$missing. Add them to the 'Deployment' environment. serv00 rejects the plain password method ('attempted methods [none]') — prefer SSH_KEY."
           else
             echo "ready=true" >> "$GITHUB_OUTPUT"
-            echo "SSH secrets present (host ${#SSH_HOST} chars, user ${#SSH_USERNAME} chars, password set)."
+            echo "SSH secrets present (host ${#SSH_HOST} chars, user ${#SSH_USERNAME} chars, auth=$([ -n "${SSH_KEY:-}" ] && echo key || echo password))."
           fi
 
       # Keep the server's (FTP-ignored) vendor/ in sync with the just-deployed app code. dev-main
@@ -94,7 +101,8 @@ jobs:
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USERNAME }}
-          password: ${{ secrets.SSH_PASSWORD }}
+          key: ${{ secrets.SSH_KEY }}            # preferred on serv00 (publickey auth)
+          password: ${{ secrets.SSH_PASSWORD }}  # fallback; only if the host offers `password` auth
           port: ${{ secrets.SSH_PORT || 22 }}
           script_stop: true
           command_timeout: 15m
