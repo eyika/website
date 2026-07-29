@@ -5,28 +5,22 @@ name: Deploy docs to serv00
 # honours .git-ftp-include / .git-ftp-ignore and keeps the incremental .git-ftp.log state ON THE
 # SERVER — so this deploys exactly what a manual `git ftp push` would, only automatically.
 #
-# After the FTP push it SSHes into the server and runs `composer update`, so the server's
-# vendor/ (which is FTP-ignored) never drifts from the deployed app code — the fix for the
-# "middleware signature must be compatible" fatals after a framework bump.
+# This deploys APP CODE only. vendor/ is FTP-ignored, so after a framework bump (eyika/atom-framework
+# is a moving branch) you must refresh it manually — serv00 SSH is gated behind a 2FA OTP, which no
+# unattended CI step can answer, so this is intentionally a human step:
 #
-# Required secrets — all stored in the "Deployment" GitHub Environment (the job declares
+#     ssh basttyydev@s15.serv00.com            # enter password, then the 2FA code
+#     cd ~/domains/basttyydev.serv00.net/public_html
+#     composer update eyika/atom-framework -W  # realigns vendor/ with the deployed app code
+#
+# (composer.lock is git-ignored / not deployed, so `composer install` can't pin it — use update.)
+#
+# Required secrets — stored in the "Deployment" GitHub Environment (the job declares
 # `environment: Deployment` below so they're injected; environment secrets are empty otherwise):
 #   FTP_URL          full FTPS URL incl. remote path, e.g. ftpes://s15.serv00.com/<remote-app-root>/
 #                    (use the SAME value your manual git config git-ftp.url uses)
 #   FTP_USERNAME     FTP account username
 #   FTP_PASSWORD     FTP account password
-# The post-FTP SSH step uses its OWN secrets, independent of the FTP creds:
-#   SSH_HOST         SSH host, e.g. s15.serv00.com  (or your panel's SSH host)
-#   SSH_USERNAME     SSH login username
-#   SSH_KEY          PRIVATE key (OpenSSH format) whose public half is in the server's
-#                    ~/.ssh/authorized_keys — this is the reliable path on serv00, which
-#                    rejects the plain `password` auth method (hence "attempted methods [none]").
-#   SSH_PASSWORD     (fallback) only works if the host actually offers `password` auth
-#   SSH_PORT         (optional) SSH port; defaults to 22 if unset
-# Provide EITHER SSH_KEY (preferred) OR SSH_PASSWORD. Generate a key + register it on serv00:
-#   ssh-keygen -t ed25519 -f serv00_deploy -N ""      # creates serv00_deploy (+ .pub)
-#   ssh-copy-id -i serv00_deploy.pub USER@SSH_HOST     # keyboard-interactive login works here
-#   then paste the contents of serv00_deploy into the SSH_KEY secret.
 
 on:
   push:
@@ -67,49 +61,3 @@ jobs:
           # --auto-init uploads everything on the very first run (no server-side .git-ftp.log yet),
           # then subsequent runs deploy only the changed files.
           git ftp push --insecure --auto-init --verbose
-
-      # Verify the SSH secrets actually reached the job BEFORE invoking the SSH action. An empty
-      # SSH_PASSWORD is exactly what produces appleboy's "attempted methods [none]" handshake
-      # error — the action sends no credential at all. If anything is missing we WARN and skip
-      # (the docs are already deployed above) rather than fail the whole run red.
-      - name: Check SSH secrets present
-        id: sshcheck
-        env:
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-          SSH_USERNAME: ${{ secrets.SSH_USERNAME }}
-          SSH_KEY: ${{ secrets.SSH_KEY }}
-          SSH_PASSWORD: ${{ secrets.SSH_PASSWORD }}
-        run: |
-          missing=
-          [ -z "${SSH_HOST:-}" ] && missing="$missing SSH_HOST"
-          [ -z "${SSH_USERNAME:-}" ] && missing="$missing SSH_USERNAME"
-          [ -z "${SSH_KEY:-}" ] && [ -z "${SSH_PASSWORD:-}" ] && missing="$missing SSH_KEY-or-SSH_PASSWORD"
-          if [ -n "$missing" ]; then
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::Skipping composer-update: missing SSH secret(s) →$missing. Add them to the 'Deployment' environment. serv00 rejects the plain password method ('attempted methods [none]') — prefer SSH_KEY."
-          else
-            echo "ready=true" >> "$GITHUB_OUTPUT"
-            echo "SSH secrets present (host ${#SSH_HOST} chars, user ${#SSH_USERNAME} chars, auth=$([ -n "${SSH_KEY:-}" ] && echo key || echo password))."
-          fi
-
-      # Keep the server's (FTP-ignored) vendor/ in sync with the just-deployed app code. dev-main
-      # is a moving branch, so `composer update` re-resolves it (composer.lock isn't deployed, so
-      # `composer install` can't) — this realigns MiddlewareInterface etc. with the app.
-      - name: Sync vendor on serv00 (composer update)
-        if: steps.sshcheck.outputs.ready == 'true'
-        uses: appleboy/ssh-action@v1.2.2
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USERNAME }}
-          key: ${{ secrets.SSH_KEY }}            # preferred on serv00 (publickey auth)
-          password: ${{ secrets.SSH_PASSWORD }}  # fallback; only if the host offers `password` auth
-          port: ${{ secrets.SSH_PORT || 22 }}
-          script_stop: true
-          command_timeout: 15m
-          script: |
-            set -e
-            cd ~/domains/basttyydev.serv00.net/public_html
-            export COMPOSER_MEMORY_LIMIT=-1
-            # serv00 provides `composer`; fall back to a php composer.phar if it isn't on PATH.
-            if command -v composer >/dev/null 2>&1; then COMPOSER="composer"; else COMPOSER="php composer.phar"; fi
-            $COMPOSER update eyika/atom-framework -W --no-interaction --no-progress --prefer-dist
