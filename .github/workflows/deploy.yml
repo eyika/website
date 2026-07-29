@@ -15,8 +15,12 @@ name: Deploy docs to serv00
 #                    (use the SAME value your manual git config git-ftp.url uses)
 #   FTP_USERNAME     FTP account username
 #   FTP_PASSWORD     FTP account password
-# The post-FTP SSH step REUSES FTP_USERNAME + FTP_PASSWORD (serv00 uses one account password for
-# both FTP and SSH), so NO extra secrets are needed. The SSH host is hardcoded below (s15.serv00.com).
+# The post-FTP SSH step uses its OWN secrets so you can experiment with host/username/password
+# combinations independently of the FTP creds (serv00's SSH host/user may differ from FTP):
+#   SSH_HOST         SSH host, e.g. s15.serv00.com  (or ssh.serv00.com / your panel's SSH host)
+#   SSH_USERNAME     SSH login username
+#   SSH_PASSWORD     SSH login password
+#   SSH_PORT         (optional) SSH port; defaults to 22 if unset
 
 on:
   push:
@@ -64,10 +68,10 @@ jobs:
       - name: Sync vendor on serv00 (composer update)
         uses: appleboy/ssh-action@v1.2.2
         with:
-          host: s15.serv00.com # serv00 SSH host (same box + account as FTP)
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }} # serv00: one account password for FTP and SSH
-          port: 22
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: ${{ secrets.SSH_PORT || 22 }}
           script_stop: true
           command_timeout: 15m
           script: |
