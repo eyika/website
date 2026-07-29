@@ -31,7 +31,18 @@ trap 'rm -f "$LOCK"' EXIT
 # Consume the flag up-front so a push arriving mid-deploy re-triggers the next tick.
 rm -f "$FLAG"
 
-if command -v composer >/dev/null 2>&1; then COMPOSER="composer"; else COMPOSER="php composer.phar"; fi
+# Cron's PATH resolves `php`/`composer` to the system default (8.3.x), but the app's deps need
+# 8.4 — the login shell's php lives at ~/bin/php. Use that interpreter, and run Composer THROUGH
+# it (composer's own shebang would otherwise fall back to cron's older php).
+PHP="$HOME/bin/php"
+[ -x "$PHP" ] || PHP="$(command -v php)"
+if [ -x /usr/local/bin/composer ]; then
+    COMPOSER="$PHP /usr/local/bin/composer"
+elif command -v composer >/dev/null 2>&1; then
+    COMPOSER="$PHP $(command -v composer)"
+else
+    COMPOSER="$PHP composer.phar"
+fi
 
 {
     echo "===== deploy $(date) ====="
@@ -57,6 +68,6 @@ if command -v composer >/dev/null 2>&1; then COMPOSER="composer"; else COMPOSER=
         fi
     fi
 
-    php artisan vendor:publish --tag=atom-assets --force
+    "$PHP" artisan vendor:publish --tag=atom-assets --force
     echo "===== done $(date) ====="
 } >> "$LOG" 2>&1
