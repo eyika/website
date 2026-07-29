@@ -29,15 +29,17 @@ class DeployController extends Controller
         }
 
         // Verify the signature against the RAW body — GitHub signs the exact bytes it sent.
-        $raw = file_get_contents('php://input') ?: '';
-        $signature = $_SERVER['HTTP_X_HUB_SIGNATURE_256'] ?? '';
+        // Use Request::rawBody(): php://input is a one-shot stream the framework already
+        // consumed and cached, so a fresh file_get_contents('php://input') would be empty.
+        $raw = $request->rawBody();
+        $signature = (string) $request->headers('X-Hub-Signature-256');
         $expected = 'sha256=' . hash_hmac('sha256', $raw, $secret);
 
         if ($signature === '' || !hash_equals($expected, $signature)) {
             return JsonResponse::unauthorized('invalid signature');
         }
 
-        $event = $_SERVER['HTTP_X_GITHUB_EVENT'] ?? '';
+        $event = (string) $request->headers('X-GitHub-Event');
         if ($event === 'ping') {
             return JsonResponse::ok('pong'); // GitHub's test delivery
         }
