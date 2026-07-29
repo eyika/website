@@ -9,4 +9,6 @@ use Eyika\Atom\Framework\Http\Route;
 Route::post('/deploy/github', [DeployController::class, 'github']);
 
 Route::get('/{resource?}/{version?}/{page1?}/{page2?}', [DocsController::class, 'generatePage']);
+
+// (push-to-deploy verified via GitHub webhook → serv00 cron; see DeployController + deploy.sh)
 // Route::get('/', [DocsController::class, 'generatePage']);
