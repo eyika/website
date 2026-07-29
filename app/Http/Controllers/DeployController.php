@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use Eyika\Atom\Framework\Http\JsonResponse;
 use Eyika\Atom\Framework\Http\Request;
+use Eyika\Atom\Framework\Support\Facade\JsonResponse; // facade → static ok()/unauthorized()/serverError()
 
 /**
  * Receives GitHub push webhooks and requests a redeploy.

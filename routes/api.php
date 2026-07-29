@@ -1,8 +1,8 @@
 <?php
 
 use App\Http\Controllers\DeployController;
-use Eyika\Atom\Framework\Http\JsonResponse;
 use Eyika\Atom\Framework\Http\Route;
+use Eyika\Atom\Framework\Support\Facade\JsonResponse; // facade for static JsonResponse::ok()
 
 Route::get('', function () {
     return JsonResponse::ok('hello world api');
