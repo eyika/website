@@ -8,6 +8,9 @@ define('ATOM_START', microtime(true));
 
 $log_path = __DIR__."/../storage/logs/php_error.log";
 ini_set('error_log', $log_path);
+// Never leak PHP errors/fatals to visitors by default — they go to the log above. Local dev
+// re-enables display after the app boots and APP_ENV is known (see below).
+ini_set('display_errors', '0');
 
 /*
 |--------------------------------------------------------------------------
@@ -62,8 +65,17 @@ require_once __DIR__."/../vendor/eyika/atom-framework/src/helpers.php";
 try {
     $app = require_once __DIR__.'/../bootstrap/app.php';
 
+    // Only show raw errors on local dev (after .env is loaded by the app bootstrap).
+    if (($_ENV['APP_ENV'] ?? getenv('APP_ENV') ?: 'production') === 'local') {
+        ini_set('display_errors', '1');
+    }
+
     $server = new Server($app);
     $server->handle();
-} catch (\Exception $e) {
-    echo $e->getMessage();
+} catch (\Throwable $e) {
+    error_log($e->getMessage()."\n".$e->getTraceAsString());
+    http_response_code(500);
+    echo (($_ENV['APP_ENV'] ?? getenv('APP_ENV') ?: 'production') === 'local')
+        ? $e->getMessage()
+        : 'Server error.';
 }
