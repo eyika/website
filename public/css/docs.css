@@ -255,7 +255,7 @@ a:hover { color: var(--link-hover); text-decoration: underline; }
    slim right slot, and the leftover stays as right margin — the rail never fattens up. */
 .docs-body {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 12rem;  /* content FILLS the width; rail is a slim 192px strip */
+    grid-template-columns: minmax(0, 1fr) 15rem;  /* content FILLS the width; rail is a slim 240px strip */
     gap: 48px;
     align-items: start;
 }
