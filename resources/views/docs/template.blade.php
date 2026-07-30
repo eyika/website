@@ -1,96 +1,122 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ $title ?? 'Atom Documentation' }}</title>
+    <meta name="description" content="Documentation for the Atom PHP framework.">
+
+    <script>
+        // Set the theme before first paint to avoid a flash of the wrong theme.
+        (function () {
+            try {
+                var stored = localStorage.getItem('theme');
+                var theme = stored || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                document.documentElement.setAttribute('data-theme', theme);
+            } catch (e) {}
+        })();
+    </script>
+
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <link rel="stylesheet" href="/css/docs.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-markup-templating.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-php.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-css.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" id="prism-theme">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-markup-templating.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-php.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-css.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js" defer></script>
     <script src="/js/docs.js" defer></script>
 </head>
 <body>
     <div id="docs-container">
-        <header>
-            <button class="hamburger-menu" onclick="toggleSidebar()">☰</button>
-            <div class="header-content">
-                <h1><a href="/">Atom Docs</a></h1>
-                <h3>(Powered by <a href="https://github.com/eyika">Atom Framework</a> and <a href="https://parsedown.org/">Parsdown</a>)</h3>
+        <header class="site-header">
+            <button class="menu-toggle" aria-label="Toggle navigation" aria-controls="sidebar" aria-expanded="false">
+                <span></span><span></span><span></span>
+            </button>
 
-                <!-- Header Actions -->
-                <div class="header-action-items">
-                    <!-- Version Dropdown -->
-                    <select id="version-dropdown" onchange="window.location.href=this.value;">
-                        @foreach ($versions ?? [] as $_version)
-                            <option value="/docs/{{ $_version }}/{{ $page }}" {{ $version === $_version ? 'selected' : '' }}>{{ \Eyika\Atom\Framework\Support\Str::pascal($_version) }}</option>
-                        @endforeach
-                    </select>
+            <a class="brand" href="/">
+                <svg class="brand-mark" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                    <circle cx="12" cy="12" r="2.2" fill="currentColor" stroke="none"></circle>
+                    <ellipse cx="12" cy="12" rx="10" ry="4.4"></ellipse>
+                    <ellipse cx="12" cy="12" rx="10" ry="4.4" transform="rotate(60 12 12)"></ellipse>
+                    <ellipse cx="12" cy="12" rx="10" ry="4.4" transform="rotate(120 12 12)"></ellipse>
+                </svg>
+                <span class="brand-text">
+                    <span class="brand-title">Atom Docs</span>
+                    <span class="brand-sub">the Atom PHP framework</span>
+                </span>
+            </a>
 
-                    <!-- Dark/Light Mode Toggle -->
-                    <button id="mode-toggle" onclick="toggleDarkMode()" aria-label="Toggle Dark Mode">🌙</button>
-                </div>
+            <div class="header-actions">
+                <label class="visually-hidden" for="version-dropdown">Version</label>
+                <select id="version-dropdown" onchange="window.location.href=this.value;">
+                    @foreach ($versions ?? [] as $_version)
+                        <option value="/docs/{{ $_version }}/{{ $page }}" {{ $version === $_version ? 'selected' : '' }}>{{ \Eyika\Atom\Framework\Support\Str::pascal($_version) }}</option>
+                    @endforeach
+                </select>
+
+                <button id="theme-toggle" type="button" aria-label="Toggle color theme" title="Toggle theme">
+                    <svg class="icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg>
+                    <svg class="icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"></path></svg>
+                </button>
             </div>
         </header>
 
         <div id="main-content">
-            <aside id="sidebar">
-                <h3><a class="powered-by" href="https://github.com/eyika">Powered by Atom Framework</a><a class="powered-by" href="https://parsedown.org/"> and Parsdown</a></h3>
-                <nav>
-                    <ul class="navigation">
+            <div class="sidebar-overlay" hidden></div>
+            <aside id="sidebar" aria-label="Documentation navigation">
+                <nav class="sidebar-nav">
+                    <ul class="nav-list">
                         @foreach ($navigation as $section => $links)
-                            <li class="nav-section expandable-menu">
-                                @if (is_string($links))
-                                    <a href="/docs/{{ $version }}/{{ $section }}">{{ $links }}</a>
-                                @else
-                                    <button class="nav-header" aria-expanded="false" onclick="toggleSection('nav-{{ $section }}')">
-                                        {{ $section }}
+                            @if (is_string($links))
+                                <li class="nav-item">
+                                    <a class="nav-link" href="/docs/{{ $version }}/{{ $section }}">{{ $links }}</a>
+                                </li>
+                            @else
+                                <li class="nav-group">
+                                    <button class="nav-group-toggle" type="button" aria-expanded="false">
+                                        <span>{{ $links['index'] ?? \Eyika\Atom\Framework\Support\Str::pascal($section) }}</span>
+                                        <span class="chevron" aria-hidden="true"></span>
                                     </button>
-                                    <ul class="nav-links collapsible" id="nav-{{ $section }}">
+                                    <ul class="nav-group-list">
                                         @foreach ($links as $link => $label)
-                                            <li><a href="/docs/{{ $version }}/{{ $section }}/{{ $link }}">{{ $label }}</a></li>
+                                            <li>
+                                                <a class="nav-link" href="/docs/{{ $version }}/{{ $section }}/{{ $link }}">{{ $label }}</a>
+                                            </li>
                                         @endforeach
                                     </ul>
-                                @endif
-                            </li>
+                                </li>
+                            @endif
                         @endforeach
                     </ul>
                 </nav>
             </aside>
 
-            <main>
-                {!! $content !!}
-                <div class="pagination">
-                    <a href="{{ $previousPageUrl }}" class="btn btn-prev" @if(!$previousPageUrl) disabled @endif>Previous</a>
-                    <a href="{{ $nextPageUrl }}" class="btn btn-next" @if(!$nextPageUrl) disabled @endif>Next</a>
-                </div>
+            <main class="docs-main">
+                <article class="docs-content">
+                    {!! $content !!}
+                </article>
+
+                <nav class="pagination" aria-label="Pagination">
+                    @if($previousPageUrl)
+                        <a href="{{ $previousPageUrl }}" class="page-link page-prev"><span class="page-dir">← Previous</span></a>
+                    @else
+                        <span class="page-link page-prev is-disabled"><span class="page-dir">← Previous</span></span>
+                    @endif
+                    @if($nextPageUrl)
+                        <a href="{{ $nextPageUrl }}" class="page-link page-next"><span class="page-dir">Next →</span></a>
+                    @else
+                        <span class="page-link page-next is-disabled"><span class="page-dir">Next →</span></span>
+                    @endif
+                </nav>
+
+                <footer class="docs-footer">
+                    <p>&copy; {{ date('Y') }} Eyika. Built with the <a href="https://github.com/eyika">Atom Framework</a>.</p>
+                </footer>
             </main>
         </div>
-
-        <footer>
-            <p>&copy; {{ date('Y') }} Eyika. All rights reserved.</p>
-        </footer>
     </div>
-
-    <script>
-        // Toggle collapsible navigation sections
-        function toggleSection(sectionId) {
-            const section = document.getElementById(sectionId);
-            const isCollapsed = section.classList.contains('collapsed');
-            section.classList.toggle('collapsed', !isCollapsed);
-            section.previousElementSibling.setAttribute('aria-expanded', !isCollapsed);
-        }
-
-        // Dark mode toggle
-        function toggleDarkMode() {
-            document.body.classList.toggle('dark-mode');
-            const isDark = document.body.classList.contains('dark-mode');
-            document.getElementById('mode-toggle').textContent = isDark ? '☀️' : '🌙';
-        }
-    </script>
 </body>
 </html>
-        
