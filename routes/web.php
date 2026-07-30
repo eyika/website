@@ -10,5 +10,5 @@ Route::post('/deploy/github', [DeployController::class, 'github']);
 
 Route::get('/{resource?}/{version?}/{page1?}/{page2?}', [DocsController::class, 'generatePage']);
 
-// (push-to-deploy verified via GitHub webhook → serv00 cron; see DeployController + deploy.sh)
+// Push-to-deploy: GitHub push webhook → /deploy/github → serv00 cron (deploy.sh). See DeployController.
 // Route::get('/', [DocsController::class, 'generatePage']);
