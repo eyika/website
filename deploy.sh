@@ -14,6 +14,10 @@ set -u
 APP_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$APP_DIR" || exit 0
 
+# Cron's minimal PATH resolves php/composer to the system default (8.3); the app needs the 8.4
+# in ~/bin. Prepend it so php, composer, and Composer's own @php post-scripts all use 8.4.
+export PATH="$HOME/bin:$PATH"
+
 FLAG="$APP_DIR/storage/deploy.request"
 LOG="$APP_DIR/storage/logs/deploy.log"
 LOCK="$APP_DIR/storage/deploy.lock"
