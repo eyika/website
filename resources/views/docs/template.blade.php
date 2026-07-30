@@ -95,26 +95,35 @@
             </aside>
 
             <main class="docs-main">
-                <article class="docs-content">
-                    {!! $content !!}
-                </article>
+                <div class="docs-body">
+                    <div class="docs-left">
+                        <article class="docs-content">
+                            {!! $content !!}
+                        </article>
 
-                <nav class="pagination" aria-label="Pagination">
-                    @if($previousPageUrl)
-                        <a href="{{ $previousPageUrl }}" class="page-link page-prev"><span class="page-dir">← Previous</span></a>
-                    @else
-                        <span class="page-link page-prev is-disabled"><span class="page-dir">← Previous</span></span>
-                    @endif
-                    @if($nextPageUrl)
-                        <a href="{{ $nextPageUrl }}" class="page-link page-next"><span class="page-dir">Next →</span></a>
-                    @else
-                        <span class="page-link page-next is-disabled"><span class="page-dir">Next →</span></span>
-                    @endif
-                </nav>
+                        <nav class="pagination" aria-label="Pagination">
+                            @if($previousPageUrl)
+                                <a href="{{ $previousPageUrl }}" class="page-link page-prev"><span class="page-dir">← Previous</span></a>
+                            @else
+                                <span class="page-link page-prev is-disabled"><span class="page-dir">← Previous</span></span>
+                            @endif
+                            @if($nextPageUrl)
+                                <a href="{{ $nextPageUrl }}" class="page-link page-next"><span class="page-dir">Next →</span></a>
+                            @else
+                                <span class="page-link page-next is-disabled"><span class="page-dir">Next →</span></span>
+                            @endif
+                        </nav>
 
-                <footer class="docs-footer">
-                    <p>&copy; {{ date('Y') }} Eyika. Built with the <a href="https://github.com/eyika">Atom Framework</a>.</p>
-                </footer>
+                        <footer class="docs-footer">
+                            <p>&copy; {{ date('Y') }} Eyika. Built with the <a href="https://github.com/eyika">Atom Framework</a>.</p>
+                        </footer>
+                    </div>
+
+                    <aside class="toc" aria-label="On this page">
+                        <p class="toc-title">On this page</p>
+                        <nav class="toc-nav"></nav>
+                    </aside>
+                </div>
             </main>
         </div>
     </div>

@@ -6,8 +6,9 @@
         initTheme();
         initSidebarAccordion();
         initActiveState();
-        initCopyButtons();
+        initToc();            // before heading anchors, so TOC text stays clean
         initHeadingAnchors();
+        initCopyButtons();
         initMobileNav();
     });
 
@@ -117,6 +118,50 @@
             try { document.execCommand('copy'); } catch (e) {}
             document.body.removeChild(ta); resolve();
         });
+    }
+
+    /* ---- "On this page" table of contents + scroll-spy ---------------- */
+    function initToc() {
+        var toc = document.querySelector('.toc');
+        var tocNav = document.querySelector('.toc-nav');
+        var content = document.querySelector('.docs-content');
+        var scroller = document.querySelector('.docs-main');
+        if (!toc || !tocNav || !content) return;
+
+        var headings = Array.prototype.slice.call(content.querySelectorAll('h2[id], h3[id]'));
+        if (headings.length < 2) { toc.style.display = 'none'; return; }
+
+        var ul = document.createElement('ul');
+        var linkById = {};
+        headings.forEach(function (h) {
+            var a = document.createElement('a');
+            a.className = 'toc-link' + (h.tagName === 'H3' ? ' lvl-3' : '');
+            a.href = '#' + h.id;
+            a.textContent = h.textContent;
+            var li = document.createElement('li');
+            li.appendChild(a);
+            ul.appendChild(li);
+            linkById[h.id] = a;
+        });
+        tocNav.appendChild(ul);
+
+        var currentId = null;
+        function setActive(id) {
+            if (id === currentId || !linkById[id]) return;
+            if (currentId && linkById[currentId]) linkById[currentId].classList.remove('active');
+            linkById[id].classList.add('active');
+            currentId = id;
+        }
+
+        if ('IntersectionObserver' in window) {
+            var observer = new IntersectionObserver(function (entries) {
+                entries.forEach(function (e) {
+                    if (e.isIntersecting) setActive(e.target.id);
+                });
+            }, { root: scroller, rootMargin: '0px 0px -72% 0px', threshold: 0 });
+            headings.forEach(function (h) { observer.observe(h); });
+        }
+        setActive(headings[0].id);
     }
 
     /* ---- Clickable anchor links on headings --------------------------- */
