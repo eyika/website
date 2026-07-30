@@ -251,16 +251,22 @@ a:hover { color: var(--link-hover); text-decoration: underline; }
     padding: 40px 48px 64px;
     scroll-padding-top: 20px;
 }
-.docs-body { display: flex; align-items: flex-start; gap: 56px; }
-.docs-left { flex: 1 1 0; min-width: 0; max-width: var(--measure); }
+/* Content keeps a fixed reading column (shrinks only under pressure); the rail takes the
+   slim right slot, and the leftover stays as right margin — the rail never fattens up. */
+.docs-body {
+    display: grid;
+    grid-template-columns: minmax(0, var(--measure)) 13rem;
+    gap: 48px;
+    align-items: start;
+}
+.docs-left { min-width: 0; }
 .docs-content { min-width: 0; }
 
 /* On-this-page rail */
 .toc {
-    flex: 0 0 14rem;
     position: sticky;
     top: 0;
-    align-self: flex-start;
+    align-self: start;
     max-height: calc(100vh - var(--header-h) - 48px);
     overflow-y: auto;
 }
@@ -456,7 +462,7 @@ a:focus-visible, button:focus-visible, select:focus-visible {
 .sidebar-overlay:not([hidden]) { opacity: 1; }
 
 /* ---- Responsive ------------------------------------------------------- */
-@media (max-width: 1300px) { .toc { display: none; } .docs-left { max-width: 56rem; } }
+@media (max-width: 1300px) { .toc { display: none; } .docs-body { grid-template-columns: minmax(0, 56rem); } }
 
 @media (max-width: 1024px) {
     .docs-main { padding: 32px 28px 56px; }
