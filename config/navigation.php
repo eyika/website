@@ -57,6 +57,7 @@ return [
             'writing' => 'Writing a Package',
         ],
 
+        'changelog' => 'Changelog',
         'contributing' => 'Contributing',
         'faq' => 'FAQ',
     ]
