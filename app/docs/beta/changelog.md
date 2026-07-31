@@ -26,14 +26,25 @@ in the repo.
   guards/providers with different user classes work. See [Custom Auth Guards](extending/auth-guards).
 - **Testing** — the application namespace is resolved independent of test-mode, so
   `DatabaseTestCase` works for standard apps whose code lives in `app/`. See [Testing](advanced/testing).
+- **Migrations** — `migrate --pretend` and `migrate:rollback --pretend` now do a real dry run: they
+  print the ordered list of migrations that would run / roll back and make **no** database changes
+  (the flag previously did nothing and silently ran the real operation). See [Migrations](database/migrations).
 
 ### Changed
 
 - **Scheduler** — cron matching now uses `config('app.timezone')` (default UTC) instead of the CLI's
   php.ini timezone, so timed jobs fire at the intended app time.
+- **Migrations** — dropped the unimplemented `--force` flag from `migrate` (it had no confirmation
+  prompt to bypass).
 
 ### Fixed
 
+- **Migrations** — MySQL tables are now created `utf8mb4` (`ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci`) instead of inheriting the server default charset — on a latin1
+  server a multi-byte character (e.g. `σ`) previously died with `1366 Incorrect string value`.
+  Override via `database.connections.mysql.{engine,charset,collation}`.
+- **Migrations** — `migrate:status` now correctly marks already-run migrations as migrated (it was
+  comparing a name against table rows, so everything showed as not-migrated).
 - **Migrations** — a fresh `php artisan migrate` no longer fails; the bootstrap migrations-table
   builder emitted invalid MySQL 8 DDL.
 - **Auth** — provider drivers no longer authenticate a second provider against the wrong (global)

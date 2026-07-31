@@ -83,6 +83,11 @@ To run migrations and immediately seed the database:
 php artisan migrate --seed
 ```
 
+To preview which migrations would run without touching the database (dry run):
+```bash
+php artisan migrate --pretend
+```
+
 ### Rolling Back Migrations
 
 To roll back the most recent batch of migrations:
@@ -95,7 +100,7 @@ php artisan migrate:rollback --step=2
 # Roll back a specific batch
 php artisan migrate:rollback --batch=3
 
-# Preview the SQL without running it
+# Dry run: list the migrations that would roll back, without touching the database
 php artisan migrate:rollback --pretend
 ```
 
@@ -198,7 +203,7 @@ php artisan db:seed --class=UsersTableSeeder
 | Command                             | Description                                           |
 |-------------------------------------|-------------------------------------------------------|
 | `php artisan make:migration`        | Create a new migration file.                          |
-| `php artisan migrate`               | Run all pending migrations (`--seed` to also seed).   |
+| `php artisan migrate`               | Run all pending migrations (`--seed` to also seed, `--pretend` to dry-run). |
 | `php artisan migrate:rollback`      | Roll back the last batch (`--step`, `--batch`, `--pretend`). |
 | `php artisan migrate:status`        | Check the status of migrations.                       |
 | `php artisan migrate:reset`         | Roll back all migrations.                             |
