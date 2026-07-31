@@ -102,8 +102,9 @@ return [
         ],
     ],
 
-    // Read directly by the shipped EloquentDriver/DatabaseDriver (see below) —
-    // keep it in sync with providers.*.model.
+    // Fallback model for the shipped EloquentDriver/DatabaseDriver when a provider omits its
+    // own `model` — providers.*.model is resolved first (see below). Optional if every provider
+    // declares a model; kept for legacy single-guard apps.
     'user' => [
         'model' => App\Models\User::class,
     ],
@@ -142,7 +143,9 @@ These back the three `protected` helper methods on `Authenticator` (`validateCre
 
 > **The shipped `config/auth.php` stub does not define `auth_drivers`.** `DriverFactory::registerHandlers()` reads `config('auth.auth_drivers', [])`, defaulting to an empty array — so if you never add this key, every call to `validateCredentials()`/`getUserById()`/`getUserByColumn()` throws `Driver [eloquent] is not supported.` even though `providers.users.driver` says `eloquent`. Add the `auth_drivers` map yourself (as shown above) the moment your guard needs those helpers.
 
-> Both shipped `DriverInterface` handlers (`EloquentDriver`, `DatabaseDriver`) instantiate the returned user from a single **global** `config('auth.user.model')` key, not from the resolved provider's own `model`/`table` entry. If you use more than one named provider with different user classes, you'll need your own `DriverInterface` implementation — the built-in handlers assume one model for the whole app.
+> The shipped `DriverInterface` handlers (`EloquentDriver`, `DatabaseDriver`) resolve the **provider's own model** — `config("auth.providers.<provider>.model")` — falling back to the global `config('auth.user.model')` when a provider omits it. So multiple named providers with different user classes (e.g. a staff `User` guard alongside a storefront `Customer` guard) work out of the box; you don't need a custom handler just for that.
+>
+> **But credential lookup is global within the provider's table, not tenant-scoped.** `attempt()` / `validateCredentials()` match the identifier (e.g. `email`) across the *entire* model/table. If your login identifier is only unique **per tenant** — a multi-tenant app where the same email can belong to two different stores — do **not** rely on `attempt()`: resolve the user scoped to the tenant first (e.g. `getUserByColumn()` on a tenant-scoped query, or look the row up by `tenant_id` + email) and then verify the password. This scoping is an application concern; the framework's credential helpers are deliberately tenant-agnostic.
 
 ---
 
@@ -368,7 +371,7 @@ Auth::guard('missing');   // throws InvalidArgumentException: Guard [missing] is
 - **Guard instances are not cached/singletons.** `Auth::guard($name)` checks an internal `static::$guards[$name]` array first, but nothing in the framework ever writes to it during normal resolution — every `Auth::guard($name)` call constructs a **new** guard instance via `new $driverClass(...)`. Don't rely on mutating state you set on a previously-fetched guard instance persisting into a later `Auth::guard()` call; persist it through `Auth::setJwt()`/`setSid()`/`setUser()`/`setImpersonation()` (static on `Auth`) instead, the way `JwtGuard` does.
 - **The constructor signature is load-bearing.** `Auth::guard()` always instantiates as `new $driverClass(static::$config, $name)`. A custom constructor with a different signature (extra required params, different order) breaks resolution.
 - **Methods you don't support should throw, not silently no-op.** Follow the shipped guards' convention: `throw new NotImplementedException('...')` for `refreshJwt()`/`generateJwt()`/`remember()` when the mechanism doesn't have an analogue, rather than returning `null` or doing nothing.
-- **`config('auth.user.model')` is global, not per-provider.** Both shipped provider drivers (`EloquentDriver`, `DatabaseDriver`) build the returned `AuthenticatableInterface` from this single key regardless of which named `provider` was resolved. If two guards need two different user classes, write your own `DriverInterface` handler rather than relying on `providers.*.model`.
+- **Provider drivers use the provider's model, but credential lookup is not tenant-scoped.** `EloquentDriver`/`DatabaseDriver` build the returned user from `config("auth.providers.<provider>.model")` (falling back to the global `auth.user.model`), so multiple providers with different user classes work. However `attempt()`/`validateCredentials()` match the identifier across the provider's whole table — for per-tenant-unique identifiers, scope the lookup to the tenant yourself before verifying (see the callout under [`providers` and `auth_drivers`](#providers-and-auth_drivers)).
 - **Under a persistent worker, call `Auth::flush()` between requests.** It resets the resolved user, jwt, sid, impersonation flags, and the (unused-but-declared) guard cache — without it, static state from one request's guard resolution can leak into the next.
 
 ---
