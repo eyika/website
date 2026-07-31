@@ -183,6 +183,22 @@ Testing is a crucial aspect of software development that ensures your applicatio
    }
    ```
 
+   > **`DatabaseTestCase` is a minimal boot — it binds a `Connection`, not the service providers.**
+   > It's designed for pure DB tests. Because providers aren't registered, facades that resolve
+   > container services (`Cache`, `Storage`, or `Auth`/`Request` via `Auth::guard()`) will throw
+   > `Class "cache"/"storage"/"request" does not exist`. If your DB test also needs those, register
+   > the app's providers once in `setUp()` (after `parent::setUp()`):
+   > ```php
+   > protected function setUp(): void
+   > {
+   >     parent::setUp();
+   >     $this->app->registerProviders();   // registers config('app.providers') → cache/storage/request/…
+   > }
+   > ```
+   > — or, for tests that exercise the full request pipeline (routes, middleware, responses), extend
+   > the integration base `Eyika\Atom\Framework\Support\Testing\TestCase` instead, which boots the
+   > whole app (providers included) and gives you `get()`/`postJson()`/`TestResponse`.
+
 ### 7. **Mocking and Stubbing**
    Mocking lets you simulate dependencies and isolate the component you're testing. Use PHPUnit's built-in mock builder, and swap the real service in the container with the mock via `instance()`.
 
