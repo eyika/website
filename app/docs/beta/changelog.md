@@ -39,6 +39,11 @@ in the repo.
 
 ### Fixed
 
+- **Testing** — the integration `TestCase` now restores the previous facade application on teardown.
+  Previously it left the global facade app pointing at its own booted container, so a test running
+  afterwards (e.g. a DB-only `DatabaseTestCase`) could have `App::make()`/facades — and container
+  overrides like `$this->app->instance($fake)` — resolving from the wrong app (an order-dependent
+  bug that passed in isolation). See [Testing](advanced/testing).
 - **Migrations** — MySQL tables are now created `utf8mb4` (`ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   COLLATE=utf8mb4_unicode_ci`) instead of inheriting the server default charset — on a latin1
   server a multi-byte character (e.g. `σ`) previously died with `1366 Incorrect string value`.
