@@ -38,6 +38,45 @@ Only data encrypted with `Encrypter` / `encrypt()`. Specifically:
 | **Remember-me cookies** | Yes, harmlessly | `SessionGuard::recall()` already catches a failed decrypt and returns `null`, so a stale cookie just means the user sees the login page. No error, no action needed. |
 | **Encrypted columns** | **Yes — migrate these** | Anything written through `Encrypter::encrypt()`, whether via a model's `const encrypted` list or explicit calls in your own setters. |
 
+### Two strategies — you may not need a new key
+
+The break is in how the key was *used*, not in the key material itself, so there are two valid
+migrations. Pick deliberately:
+
+**A. Keep your existing `APP_KEY` (simpler, recommended for most).** Decrypt old values with the
+legacy routine and re-encrypt them with the current `Encrypter` — the key string in `.env` never
+changes. Nothing else that derives from `APP_KEY` is disturbed. Entropy improves from ~150 bits to
+whatever the decoded key holds (~192 bits for a key minted by the old `key:generate`, which used
+`Str::random(32)`).
+
+**B. Rotate to a brand-new key (maximum strength).** Move the current value to `APP_KEY_OLD`, run
+`key:generate` for a fresh 256-bit key, then decrypt-with-old / re-encrypt-with-new. You get the
+full 256 bits — but read the warning below first.
+
+#### If you rotate, hash replicas break too
+
+Models using `const encrypted` also maintain a companion `<column>_hash` replica so encrypted
+columns remain queryable by equality:
+
+```php
+$values[$key . static::hashed_col_suffix] = getHash($values[$key], 'sha256', env('APP_KEY'));
+```
+
+`getHash()` is `hash_hmac('sha256', $data, APP_KEY)`. Change `APP_KEY` and every stored `_hash`
+becomes unmatchable — a lookup recomputes the hash with the new key and finds nothing. **This fails
+silently**: no exception, just rows that no longer resolve. It is easily the nastiest part of a
+rotation.
+
+So under **strategy B** you must also recompute every `_hash` column in the same pass — decrypt the
+value, re-encrypt it, *and* rewrite its hash replica. Under **strategy A** the replicas are
+untouched and there is nothing to do.
+
+Check whether this applies to you:
+
+```bash
+grep -rn "const encrypted" app/ database/     # non-empty list => you have _hash replicas
+```
+
 ### Finding your encrypted data
 
 Check **both** mechanisms — an app can use either or both:
@@ -55,13 +94,18 @@ normally and your users will simply re-login where remember-me was in play.
 
 ### The migration
 
-The shape is always the same:
+**Strategy A — keep the existing key:**
 
-1. Keep the current key as `APP_KEY_OLD` in `.env`.
-2. Run `php artisan key:generate` to mint a new, correct key.
-3. For every encrypted column: read the stored value, decrypt it with the **legacy** routine below
+1. Leave `APP_KEY` exactly as it is. Copy the same value to `APP_KEY_OLD` in `.env` so the command
+   has an explicit handle on the legacy key rather than relying on the two being equal.
+2. For every encrypted column: read the stored value, decrypt it with the **legacy** routine below
    using `APP_KEY_OLD`, then re-encrypt with the framework's current `Encrypter` and write it back.
-4. Verify, then remove `APP_KEY_OLD`.
+3. Verify, then remove `APP_KEY_OLD`.
+
+**Strategy B — rotate to a new key:** as above, but between steps 1 and 2 run
+`php artisan key:generate` to mint the new key, **and** recompute every `<column>_hash` replica in
+the same pass (see the warning above) — otherwise equality lookups on encrypted columns start
+silently failing.
 
 Do this behind a maintenance window, **take a database backup first**, and always run a dry pass
 before writing.
