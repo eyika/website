@@ -8,6 +8,20 @@ in the repo.
 
 ## Unreleased (beta)
 
+### Security
+
+- **Breaking — application key handling.** `key:generate` writes `APP_KEY=base64:…`, but the
+  encrypter used that string verbatim; `openssl_encrypt()` truncates it, so the effective AES-256
+  key began with the constant bytes `base64:` and carried roughly 150 bits of entropy instead of
+  256. The key is now decoded to raw bytes and its length checked against the cipher, failing
+  closed. `key:generate` now uses 32 raw random bytes.
+
+  Old payloads are **rejected** rather than opened with the weak key — there is no fallback, by
+  design. **Passwords and JWTs are unaffected** (passwords are hashed, and JWTs are signed with
+  `app.key` directly), and remember-me cookies simply prompt a fresh login. If your app encrypts
+  columns at rest, re-encrypt them before upgrading — see
+  [Rotating the App Key](advanced/key-rotation).
+
 ### Added
 
 - **Scheduler** — `dailyAt('HH:MM')`, `at()`, `hourlyAt(int $minute)`, and `withoutOverlapping()`

@@ -39,6 +39,7 @@ return [
             'service-container' => 'Service Container',
             'events' => 'Event System',
             'security' => 'Security',
+            'key-rotation' => 'Rotating the App Key',
             'testing' => 'Testing',
         ],
 
