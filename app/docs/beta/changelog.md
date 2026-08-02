@@ -39,6 +39,12 @@ in the repo.
 
 ### Fixed
 
+- **Error handling** — the error handler no longer writes stray `got here now …` debug lines into
+  your logs. Atom registers it as PHP's error handler, so those fired on every notice, warning and
+  deprecation — and even on `@`-suppressed operations, because the first one ran before the
+  `error_reporting()` check. Each one built a logger, read config and appended to `storage/logs`,
+  which on PHP 8.4 meant a steady stream of noise. It also made the handler itself fatal on an error
+  raised before config could be loaded.
 - **Testing** — the integration `TestCase` now restores the previous facade application on teardown.
   Previously it left the global facade app pointing at its own booted container, so a test running
   afterwards (e.g. a DB-only `DatabaseTestCase`) could have `App::make()`/facades — and container
