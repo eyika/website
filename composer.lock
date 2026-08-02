@@ -834,12 +834,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/eyika/atomframework.git",
-                "reference": "73da2689286a1682197791fc18f13b3ff0b5f7f5"
+                "reference": "fc92678ab178515eda6b1b43eac42fb24639c0cf"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/eyika/atomframework/zipball/73da2689286a1682197791fc18f13b3ff0b5f7f5",
-                "reference": "73da2689286a1682197791fc18f13b3ff0b5f7f5",
+                "url": "https://api.github.com/repos/eyika/atomframework/zipball/fc92678ab178515eda6b1b43eac42fb24639c0cf",
+                "reference": "fc92678ab178515eda6b1b43eac42fb24639c0cf",
                 "shasum": ""
             },
             "require": {
@@ -856,7 +856,7 @@
                 "eftec/bladeonehtml": "^2.4",
                 "eftec/clione": "^1.33",
                 "filp/whoops": "^2.16",
-                "firebase/php-jwt": "^6.10",
+                "firebase/php-jwt": "^7.0",
                 "league/flysystem": "^3.0",
                 "league/flysystem-aws-s3-v3": "^3.0",
                 "league/flysystem-azure-blob-storage": "^3.0",
@@ -904,7 +904,7 @@
                 "issues": "https://github.com/eyika/atomframework/issues",
                 "source": "https://github.com/eyika/atomframework/tree/main"
             },
-            "time": "2026-07-27T19:45:27+00:00"
+            "time": "2026-08-02T08:31:07+00:00"
         },
         {
             "name": "filp/whoops",
