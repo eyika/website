@@ -53,6 +53,11 @@ in the repo.
 
 ### Fixed
 
+- **Models** — a column cast to `'object'` can now be written. Casts run on writes as well as reads,
+  and the framework re-encodes the decoded payload just before it reaches the database — but that
+  step only handled arrays, and an `'object'` cast decodes to a `stdClass`. Both `create()` and
+  `update()` previously failed with *"Object of class stdClass could not be converted to string"*.
+  See [Models](database/models).
 - **Error handling** — the error handler no longer writes stray `got here now …` debug lines into
   your logs. Atom registers it as PHP's error handler, so those fired on every notice, warning and
   deprecation — and even on `@`-suppressed operations, because the first one ran before the
