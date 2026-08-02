@@ -24,6 +24,10 @@ in the repo.
 
 ### Added
 
+- **Validation** — wildcard rules for collections of objects: `items.*.name` applies a rule to every
+  element, so repeated line items can be validated declaratively instead of by hand in the
+  controller. Wildcards nest (`orders.*.lines.*.sku`) and errors are keyed by the concrete path
+  (`items.1.name`) so you know which element failed. See [Validation](validation).
 - **Scheduler** — `dailyAt('HH:MM')`, `at()`, `hourlyAt(int $minute)`, and `withoutOverlapping()`
   (a flock-based mutex, auto-released if the runner dies). `daily('HH:MM')` now honours the time you
   pass it (previously it always ran at midnight). See [Task Scheduling](scheduling).
@@ -46,13 +50,31 @@ in the repo.
 
 ### Changed
 
+- **Query builder** — a read that matches **nothing** now returns an empty `Collection` rather than
+  `false`, so the documented "multi-result reads return a Collection" holds for empty results too and
+  `count()` on an empty `get()` no longer raises a `TypeError`. A genuine query failure still
+  returns `false`. **Check any `if (!$rows)`** used to mean "nothing found" — an empty `Collection`
+  is an object and therefore truthy, so use `count($rows) === 0` or `$rows->isEmpty()`. `foreach`
+  and `$rows ?: []` are unaffected.
 - **Scheduler** — cron matching now uses `config('app.timezone')` (default UTC) instead of the CLI's
   php.ini timezone, so timed jobs fire at the intended app time.
 - **Migrations** — dropped the unimplemented `--force` flag from `migrate` (it had no confirmation
   prompt to bypass).
 
+### Removed
+
+- **Phinx** — the old Phinx integration is gone: the `make:migrations` and `make:seed` commands, plus
+  the `atom_phinx` bin. Phinx was no longer a dependency, so both commands were already broken. Use
+  the framework's own **`make:migration`** and **`make:seeder`**, which generate `Schema`/`Blueprint`
+  migrations and `Seeder` classes for the built-in migration engine. See
+  [Migrations](database/migrations).
+
 ### Fixed
 
+- **Console** — `artisan test` and `artisan serve` now work when the project path contains a space.
+  They built their subprocess command without quoting, so a path like `C:\Users\Some Name\…` was
+  split by the shell and PHP reported `Could not open input file: C:\Users\Some`. Every path and
+  argument is now quoted.
 - **Models** — a column cast to `'object'` can now be written. Casts run on writes as well as reads,
   and the framework re-encodes the decoded payload just before it reaches the database — but that
   step only handled arrays, and an `'object'` cast decodes to a `stdClass`. Both `create()` and
