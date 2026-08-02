@@ -19,8 +19,9 @@ in the repo.
   Old payloads are **rejected** rather than opened with the weak key — there is no fallback, by
   design. **Passwords and JWTs are unaffected** (passwords are hashed, and JWTs are signed with
   `app.key` directly), and remember-me cookies simply prompt a fresh login. If your app encrypts
-  columns at rest, re-encrypt them before upgrading — see
-  [Rotating the App Key](advanced/key-rotation).
+  columns at rest you must re-encrypt them — **back up, upgrade, then re-encrypt, in that order**.
+  Migrating before upgrading is a silent no-op, because the encrypter you would re-encrypt with is
+  still the old one. See [Rotating the App Key](advanced/key-rotation).
 
 ### Added
 

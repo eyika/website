@@ -1,7 +1,9 @@
 ## Rotating the Application Key
 
 This page covers a **one-off, breaking migration**. If your application encrypts data at rest with
-`Encrypter` / the `encrypt()` helper, read this **before** upgrading `eyika/atom-framework`.
+`Encrypter` / the `encrypt()` helper, read this **before** upgrading `eyika/atom-framework` — then
+upgrade and migrate in the order given under [The migration](#the-migration). Migrating first is a
+silent no-op; the reason is explained there.
 
 ### What changed, and why
 
@@ -94,18 +96,38 @@ normally and your users will simply re-login where remember-me was in play.
 
 ### The migration
 
+#### Order matters: upgrade the framework FIRST
+
+It is tempting to migrate the data *before* upgrading, to avoid a window of unreadable
+credentials. **That does not work, and it fails silently.**
+
+`Encrypter::encrypt()` resolves to whatever is installed in `vendor/`. Run the migration before
+`composer update` and you decrypt with the legacy routine and re-encrypt with the *same legacy
+implementation* — a no-op that leaves the weak key in place and reports success. The upgrade then
+breaks every value anyway.
+
+So the sequence is:
+
+1. **Take a database backup** and enter a maintenance window.
+2. **`composer update eyika/atom-framework`.** From this moment your encrypted columns are
+   unreadable — this is the window the maintenance mode exists for.
+3. **Write `APP_KEY_OLD` into `.env`** (see the two strategies below for what its value is).
+4. **Run the migration command.** Its `decryptLegacy()` is deliberately self-contained — it does not
+   call the framework — which is precisely what lets it read old values *after* the framework has
+   moved on. Re-encryption goes through the new `Encrypter`.
+5. **Verify**, leave maintenance mode, then remove `APP_KEY_OLD`.
+
 **Strategy A — keep the existing key:**
 
-1. Leave `APP_KEY` exactly as it is. Copy the same value to `APP_KEY_OLD` in `.env` so the command
-   has an explicit handle on the legacy key rather than relying on the two being equal.
-2. For every encrypted column: read the stored value, decrypt it with the **legacy** routine below
-   using `APP_KEY_OLD`, then re-encrypt with the framework's current `Encrypter` and write it back.
-3. Verify, then remove `APP_KEY_OLD`.
+At step 3, copy the current `APP_KEY` value verbatim into `APP_KEY_OLD` and leave `APP_KEY`
+unchanged. The command then has an explicit handle on the legacy key rather than relying on the two
+being equal.
 
-**Strategy B — rotate to a new key:** as above, but between steps 1 and 2 run
-`php artisan key:generate` to mint the new key, **and** recompute every `<column>_hash` replica in
-the same pass (see the warning above) — otherwise equality lookups on encrypted columns start
-silently failing.
+**Strategy B — rotate to a new key:**
+
+At step 3, move the current value into `APP_KEY_OLD`, then run `php artisan key:generate` to mint
+the new key. You must **also** recompute every `<column>_hash` replica in the same pass (see the
+warning above) — otherwise equality lookups on encrypted columns start silently failing.
 
 Do this behind a maintenance window, **take a database backup first**, and always run a dry pass
 before writing.
