@@ -229,6 +229,44 @@ Validator::validate($request, [
 ]);
 ```
 
+### Collections of objects — the `*` wildcard
+
+Use `*` to apply a rule to every element of an array. This is how you validate repeated
+line-item payloads declaratively instead of looping in the controller:
+
+```php
+Validator::validate($request, [
+    'items'          => 'required|array',
+    'items.*.name'   => 'required|string',
+    'items.*.qty'    => 'required|integer',
+    'items.*.price'  => 'required|numeric',
+]);
+```
+
+The wildcard is expanded against the actual payload before any rule runs, so with three items
+the rules become `items.0.name`, `items.1.name`, `items.2.name`, and so on. Every rule — built-in
+or custom — works inside a wildcard, because expansion happens first.
+
+**Errors are keyed by the concrete path**, which tells you exactly which element failed:
+
+```php
+[
+    'items.1.name' => ['name is required'],
+]
+```
+
+Wildcards nest, resolving left to right:
+
+```php
+'orders.*.lines.*.sku' => 'required|string',
+// => orders.0.lines.0.sku, orders.0.lines.1.sku, orders.1.lines.0.sku, …
+```
+
+> **A wildcard over a missing or empty array expands to nothing.** A per-element rule cannot
+> assert that the collection itself exists — with no elements, there is nothing to check. Always
+> pair it with a rule on the container (`'items' => 'required|array'`) when the collection is
+> mandatory. That is why `items` appears in its own right in the example above.
+
 ---
 
 ## Confirming a Value
