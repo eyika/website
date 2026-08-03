@@ -32,6 +32,7 @@ return [
         'broadcasting' => 'Broadcasting',
         'authorization' => 'Authorization',
         'resources' => 'API Resources',
+        'hashing' => 'Hashing',
         'logging' => 'Logging',
 
         'advanced' => [

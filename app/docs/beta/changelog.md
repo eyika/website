@@ -25,6 +25,12 @@ in the repo.
 
 ### Added
 
+- **Hashing** — a first-party password hasher. Atom verified passwords but gave you no way to
+  create one, so every app called `password_hash()` itself. `Hash::make()` / `Hash::check()` /
+  `Hash::needsRehash()` (plus `bcrypt()`) wrap PHP's password API behind `config/hashing.php` —
+  bcrypt by default, argon2i and argon2id available. Options you don't set inherit PHP's defaults
+  rather than a value pinned by the framework. Hashing is one-way and independent of `APP_KEY`, so
+  key rotation never invalidates stored passwords. See [Hashing](hashing).
 - **Route model binding** — `Model::getRouteKeyName()` chooses the column a URL segment binds
   against. It defaults to the primary key, so existing routes are unchanged; return `'slug'` (or any
   other column) to bind a human-readable segment. See
@@ -83,6 +89,11 @@ in the repo.
 
 ### Fixed
 
+- **Migrations** — package migration directories (registered with `loadMigrationsFrom()`) were only
+  half-honoured: `migrate` ran them, but `migrate:rollback` looked for the file only under the app's
+  `database/migrations` and failed with *"Migration file not found"* for a package migration it had
+  itself applied, while `migrate:status` never listed them at all. All the migrate commands now
+  share one discovery path. See [Migrations](database/migrations).
 - **Query builder — `orderBy()`** — successive calls **replaced** each other instead of
   accumulating, so `orderBy('is_default', 'DESC')->orderBy('currency')` sorted by `currency` alone;
   and a comma list applied one direction after the whole list, so `orderBy('a,b', 'DESC')` sorted
