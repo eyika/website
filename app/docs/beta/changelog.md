@@ -89,6 +89,19 @@ in the repo.
 
 ### Fixed
 
+- **Models — not every builder method was callable statically.** `Model::orderBy('name')->get()`
+  raised a raw PHP *"Non-static method … cannot be called statically"*. `orderBy`, `with` and `raw`
+  were plain public methods, which PHP resolves directly — so the static call was refused before
+  the framework's dynamic dispatch ran. They now dispatch like every other builder method
+  (unchanged if you call them on an instance). `firstOrNew`, `whereGreaterThan`, `orWhereIn`,
+  `orWhereNotIn` and `orWhereLessThanOrEqual` were simply missing from the dispatch list and now
+  work too. If you were writing `Model::getBuilder()->orderBy(...)` purely to work around this, the
+  `getBuilder()` hop is no longer needed.
+- **Helpers — `encrypt()`/`decrypt()` failed when no application was bound.** Their fallback to a
+  fresh `Encrypter` could never run — the container lookup dereferenced null first. Since model
+  column encryption (`const encrypted`) goes through these helpers, such a model could not be used
+  outside a booted application, which made it awkward to test. They now resolve through the
+  `Encrypter` facade, so a swapped encrypter is honoured too.
 - **Routing — string route targets** (a route pointing at a plain PHP file rather than a closure or
   controller) never actually worked: the file was resolved against the *framework's* own directory
   inside `vendor/`, where your file can't be. It now resolves against your application base. The
