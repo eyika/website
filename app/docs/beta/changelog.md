@@ -76,6 +76,14 @@ in the repo.
 
 ### Fixed
 
+- **Schema / indexes** — `dropUnique(['col'])` and `dropIndex(['col'])` now work outside MySQL. Two
+  things blocked them: index-name resolution used a MySQL-only `INFORMATION_SCHEMA` query (it is now
+  delegated to the driver's grammar, using `PRAGMA` on SQLite), and a column-level `->unique()`
+  compiled to an inline `UNIQUE` on every driver — which on SQLite becomes an implicit
+  `sqlite_autoindex_*` that the engine refuses to drop, making the constraint permanent. On SQLite
+  and Postgres a column-level unique is now a named index instead. MySQL DDL is unchanged; on SQLite
+  a `CREATE UNIQUE INDEX "unique_<column>"` statement accompanies the table, and uniqueness is
+  enforced exactly as before. See [Migrations](database/migrations).
 - **Route model binding** — binding previously only worked for an existing **numeric** id, and
   failed silently otherwise. Slug and UUID segments were skipped and reached the controller as raw
   strings (including models whose primary key is a UUID), and a missing row was skipped rather than
