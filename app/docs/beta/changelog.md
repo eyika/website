@@ -89,6 +89,12 @@ in the repo.
 
 ### Fixed
 
+- **Routing — string route targets** (a route pointing at a plain PHP file rather than a closure or
+  controller) never actually worked: the file was resolved against the *framework's* own directory
+  inside `vendor/`, where your file can't be. It now resolves against your application base. The
+  same target also stopped re-rendering after its first hit in a process — invisible under PHP-FPM,
+  but under a persistent worker the page rendered once and then went blank. Resolved paths are
+  additionally confined to the application directory, so `../` can't escape.
 - **Migrations** — package migration directories (registered with `loadMigrationsFrom()`) were only
   half-honoured: `migrate` ran them, but `migrate:rollback` looked for the file only under the app's
   `database/migrations` and failed with *"Migration file not found"* for a package migration it had
