@@ -55,6 +55,13 @@ in the repo.
 
 ### Changed
 
+- **Models — `guarded` no longer hides columns from your own code.** It is an *output* filter, but
+  it was also removed from the SELECT list, so a guarded column was never loaded and the model's
+  property was simply `null` — code reading, say, `created_at` off a plain `get()` silently got
+  nothing. That protected nothing extra, since `toArray()` already guards on output and is what the
+  JSON response path calls. Exposure is unchanged; only hydration is fixed. **If a model lists a
+  column in `fillable` that doesn't exist in its table** and relied on `guarded` to keep it out of
+  the query, reads will now fail with `Unknown column` — correct the `fillable` list.
 - **Query builder** — a read that matches **nothing** now returns an empty `Collection` rather than
   `false`, so the documented "multi-result reads return a Collection" holds for empty results too and
   `count()` on an empty `get()` no longer raises a `TypeError`. A genuine query failure still
@@ -76,6 +83,12 @@ in the repo.
 
 ### Fixed
 
+- **Query builder — `orderBy()`** — successive calls **replaced** each other instead of
+  accumulating, so `orderBy('is_default', 'DESC')->orderBy('currency')` sorted by `currency` alone;
+  and a comma list applied one direction after the whole list, so `orderBy('a,b', 'DESC')` sorted
+  `a` ascending. Terms now accumulate and each column keeps its own direction. Neither case raised
+  an error — the rows just came back in the wrong order. Fixed in both the model builder and the
+  static `DB` builder.
 - **Schema / indexes** — `dropUnique(['col'])` and `dropIndex(['col'])` now work outside MySQL. Two
   things blocked them: index-name resolution used a MySQL-only `INFORMATION_SCHEMA` query (it is now
   delegated to the driver's grammar, using `PRAGMA` on SQLite), and a column-level `->unique()`
