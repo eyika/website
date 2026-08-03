@@ -25,6 +25,10 @@ in the repo.
 
 ### Added
 
+- **Route model binding** — `Model::getRouteKeyName()` chooses the column a URL segment binds
+  against. It defaults to the primary key, so existing routes are unchanged; return `'slug'` (or any
+  other column) to bind a human-readable segment. See
+  [Route Model Binding](controllers#route-model-binding).
 - **Validation** — wildcard rules for collections of objects: `items.*.name` applies a rule to every
   element, so repeated line items can be validated declaratively instead of by hand in the
   controller. Wildcards nest (`orders.*.lines.*.sku`) and errors are keyed by the concrete path
@@ -72,6 +76,14 @@ in the repo.
 
 ### Fixed
 
+- **Route model binding** — binding previously only worked for an existing **numeric** id, and
+  failed silently otherwise. Slug and UUID segments were skipped and reached the controller as raw
+  strings (including models whose primary key is a UUID), and a missing row was skipped rather than
+  raising — so `ModelNotFoundException` never actually fired and no 404 was produced. Two further
+  defects sat on that dead path: the exception's constructor had a required argument after an
+  optional one (so the throw raised `ArgumentCountError`), and an app **without** an `app/Models`
+  directory got a 500 on any route carrying a parameter. All fixed; see
+  [Route Model Binding](controllers#route-model-binding).
 - **Console** — `artisan test` and `artisan serve` now work when the project path contains a space.
   They built their subprocess command without quoting, so a path like `C:\Users\Some Name\…` was
   split by the shell and PHP reported `Could not open input file: C:\Users\Some`. Every path and

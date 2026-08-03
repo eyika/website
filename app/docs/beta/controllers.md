@@ -232,7 +232,7 @@ Route::middleware('auth', false)->group('users', function () {
 
 ## Route Model Binding
 
-If the `SubstituteBindings` middleware is in the route's middleware stack — it's included by default in both the `web` and `api` groups of the scaffolded `App\Http\Kernel` — a **numeric** route parameter whose name matches the lowercased short class name of one of your `app/Models/*` classes is automatically swapped for a resolved model instance before your action runs:
+If the `SubstituteBindings` middleware is in the route's middleware stack — it's included by default in both the `web` and `api` groups of the scaffolded `App\Http\Kernel` — a route parameter whose name matches the lowercased short class name of one of your `app/Models/*` classes is automatically swapped for a resolved model instance before your action runs:
 
 ```php
 // App\Models\User exists, so {user} is bound to a User model.
@@ -249,13 +249,36 @@ public function show(Request $request, User $user)
 }
 ```
 
-Behind the scenes this calls `User::getBuilder()->find($value, false)`. If no row matches, the middleware throws `Eyika\Atom\Framework\Exceptions\Db\ModelNotFoundException` **before your controller method is ever invoked** — the framework's exception handler turns that into a 404 JSON response for API/JSON requests, or a redirect back with errors for web requests (see [Error Handling in Controllers](#error-handling-in-controllers)).
+Behind the scenes this looks the row up by the model's **route key**. If no row matches, the middleware throws `Eyika\Atom\Framework\Exceptions\Db\ModelNotFoundException` **before your controller method is ever invoked** — the framework's exception handler turns that into a 404 JSON response for API/JSON requests, or a redirect back with errors for web requests (see [Error Handling in Controllers](#error-handling-in-controllers)).
+
+### Choosing the column to bind against
+
+By default the route key is the model's `primaryKey`, so `{user}` resolves via `find()`. Override `getRouteKeyName()` to bind a human-readable segment instead:
+
+```php
+class Post extends Model
+{
+    public function getRouteKeyName(): string
+    {
+        return 'slug';
+    }
+}
+```
+
+```php
+// /posts/my-first-post  →  Post where slug = 'my-first-post'
+Route::get('/posts/{post}', [PostController::class, 'show']);
+```
+
+This also covers models whose primary key is a UUID — no override needed, since the lookup follows the key rather than the shape of the value.
 
 Notes and gotchas:
 - Binding is keyed on the **route parameter name**, not the method parameter name — `{user}` looks for a model whose short class name lowercases to `user` (i.e. `App\Models\User`). Name your route segments to match your model.
-- Only parameters whose value `is_numeric()` are considered for binding — non-numeric segments (slugs, etc.) pass through untouched.
+- A parameter whose name matches **no** model (`{format}`, `{page}`) is left alone as a scalar.
 - Pass parameter names to `SubstituteBindings::class` (or via a `bindings:` alias, if you register one) to exclude specific keys from binding — it accepts `...$ignoreKeys`.
-- The model class map is built once per process by scanning `app/Models` and cached — new model classes added after that require a process/worker restart to be picked up.
+- The model class map is built once per process by scanning `app/Models` and cached — new model classes added after that require a process/worker restart to be picked up. An app with no `app/Models` directory simply binds nothing.
+
+> **Changed in this release.** Binding previously only considered parameters whose value passed `is_numeric()`, so slug and UUID segments silently reached the controller as raw strings — and a missing row was skipped rather than raising, so `ModelNotFoundException` never actually fired. Both are fixed. If your controllers defensively re-looked-up a model because binding "didn't work", that workaround can go.
 
 ---
 
