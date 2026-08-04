@@ -10,6 +10,16 @@ in the repo.
 
 ### Security
 
+- **Breaking — request attributes now outrank client-supplied input.** `$request->foo = $obj` writes
+  to the attribute bag, but `$request->foo` resolved that bag **last**, after input, route params and
+  query. So context bound by your middleware could be shadowed by a request parameter of the same
+  name — visibly when a route param collided with it, and **more seriously because client input
+  could shadow it too**: on an unauthenticated route, `$request->current_customer` returned whatever
+  the caller posted under that key. The order is now **attributes → route params → input → query**,
+  which also means a body field can no longer shadow a matched path segment. Middleware that binds
+  context should move to the new [`setAttribute()`/`attribute()` API](controllers#route-model-binding),
+  which nothing in the request can shadow.
+
 - **Breaking — application key handling.** `key:generate` writes `APP_KEY=base64:…`, but the
   encrypter used that string verbatim; `openssl_encrypt()` truncates it, so the effective AES-256
   key began with the constant bytes `base64:` and carried roughly 150 bits of entropy instead of

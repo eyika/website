@@ -131,7 +131,18 @@ public function show(Request $request)
 }
 ```
 
-`$request->{name}` resolves in this order: input (query/body), route params, query string, then request attributes — so avoid naming a route parameter the same as a body/query field if you rely on the magic accessor.
+`$request->{name}` resolves in this order: **request attributes, route params, input (body), then query string**.
+
+Attributes come first deliberately — they are what trusted server-side code binds (`$request->tenant = $obj` in a middleware), whereas input and query come from the caller. Resolving them last, as earlier versions did, meant a client could shadow bound context simply by naming it in the request body.
+
+> **Binding context in middleware?** Prefer the explicit API — `$request->setAttribute('tenant', $obj)` and `$request->attribute('tenant')`. These read and write only the attribute bag, so nothing in the request can shadow them:
+>
+> ```php
+> $request->setAttribute('current_customer', $customer);   // in middleware
+> $customer = $request->attribute('current_customer');     // in the handler
+> ```
+>
+> `hasAttribute()` and `attributes()` round the API out.
 
 ### Optional parameters
 
