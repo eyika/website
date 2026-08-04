@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+
+# The deploy webhook is POST-only and returns nothing useful to a crawler.
+Disallow: /deploy/
+
+Sitemap: https://basttyydev.serv00.net/sitemap.xml

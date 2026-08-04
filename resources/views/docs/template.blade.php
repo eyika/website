@@ -3,8 +3,47 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ $title ?? 'Atom Documentation' }}</title>
-    <meta name="description" content="Documentation for the Atom PHP framework.">
+    @php
+        $metaTitle = $title ?? 'Atom — PHP Framework Documentation';
+        $metaDescription = $description ?? 'Documentation for Atom — a Laravel-inspired PHP framework.';
+        // Both absolute, and both derived from the REQUEST by the controller — config('app.url')
+        // defaults to http://localhost, and a scraper cannot fetch an og:image from there.
+        $metaUrl = $canonical ?? rtrim((string) config('app.url'), '/');
+        $metaImage = $ogImage ?? (rtrim((string) config('app.url'), '/') . '/img/og-default.png');
+    @endphp
+
+    <title>{{ $metaTitle }}</title>
+    <meta name="description" content="{{ $metaDescription }}">
+    <link rel="canonical" href="{{ $metaUrl }}">
+    @if (!empty($noindex))
+        <meta name="robots" content="noindex, follow">
+    @else
+        <meta name="robots" content="index, follow">
+    @endif
+
+    {{-- Open Graph: what WhatsApp, Slack, LinkedIn and Facebook read. Without og:image a
+         shared link renders as a bare text row, which is what it did before. --}}
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Atom PHP Framework">
+    <meta property="og:locale" content="en_US">
+    <meta property="og:title" content="{{ $metaTitle }}">
+    <meta property="og:description" content="{{ $metaDescription }}">
+    <meta property="og:url" content="{{ $metaUrl }}">
+    <meta property="og:image" content="{{ $metaImage }}">
+    <meta property="og:image:type" content="image/png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="Atom — PHP Framework documentation">
+
+    {{-- Twitter/X reads its own namespace; summary_large_image gives the full-width card. --}}
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{{ $metaTitle }}">
+    <meta name="twitter:description" content="{{ $metaDescription }}">
+    <meta name="twitter:image" content="{{ $metaImage }}">
+
+    <link rel="icon" type="image/png" sizes="32x32" href="/img/favicon-32.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/img/apple-touch-icon.png">
+    <meta name="theme-color" content="#1b202a">
 
     <script>
         // Set the theme before first paint to avoid a flash of the wrong theme.
