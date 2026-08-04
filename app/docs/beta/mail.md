@@ -172,10 +172,30 @@ $response = Mailer::to('user@example.com', 'Jane Doe')
 - **`->from(string $address, ?string $name = null)`** — set the sender.
 - **`->replyTo(string $address, ?string $name = null)`** — set a reply-to address.
 - **`->buildHtml(string $templateName, array $data = [], ?string $resourcePath = null)`** — render an HTML body from a template. The template is resolved through the Twig-like engine against `config('mail.markdown.paths')` (override with `$resourcePath`), with `$data` exposed to the template.
+- **`->header(string $name, string $value)`** — set a custom message header. Setting the same name twice replaces it.
+- **`->headers(array $headers)`** — set several at once, as `['Name' => 'value']`.
 - **`->send(string $subject, ?string $to = null)`** — deliver the built HTML body. If `$to` is supplied it is added as a recipient before sending. Returns a `MailerResponse`.
 - **`Mailer::init(?string $driver = null, ?array $config = null)`** — explicitly select a mailer/driver (or pass an ad-hoc config) instead of the configured default.
 
-> The `Mailer` keeps a **single static driver instance** for the lifetime of the PHP process, so `to()`, `from()`, `replyTo()`, and `buildHtml()` all operate on the same underlying message. After each `send()`, the SMTP driver clears its recipients and reply-tos so a subsequent send within the same process (for example inside a `queue:work` loop) does not accumulate previous recipients.
+> The `Mailer` keeps a **single static driver instance** for the lifetime of the PHP process, so `to()`, `from()`, `replyTo()`, and `buildHtml()` all operate on the same underlying message. After each `send()`, the SMTP driver clears its recipients, reply-tos and custom headers so a subsequent send within the same process (for example inside a `queue:work` loop) does not accumulate previous recipients — or carry one message's headers onto the next.
+
+### Bulk mail: `List-Unsubscribe` is not optional
+
+Since **February 2024**, Gmail and Yahoo require bulk senders to include `List-Unsubscribe` together with `List-Unsubscribe-Post: List-Unsubscribe=One-Click`. A visible unsubscribe link in the body satisfies a human reader but **not** the automated check, and a sender without these headers gets rate-limited or filtered.
+
+This matters even if most of your mail is transactional: the throttling applies to the **sending domain**, so a non-compliant campaign takes your receipts and password resets down with it.
+
+```php
+Mailer::to($subscriber->email)
+    ->buildHtml('campaign.html', $data)
+    ->header('List-Unsubscribe', "<{$oneClickUrl}>, <mailto:unsubscribe@example.com>")
+    ->header('List-Unsubscribe-Post', 'List-Unsubscribe=One-Click')
+    ->send('Our July newsletter');
+```
+
+The one-click URL must accept a `POST` and unsubscribe without further interaction — a link that opens a confirmation page does not qualify.
+
+> **Driver support.** SMTP, Sendmail, Mailgun and Postmark carry arbitrary headers natively. **The SES driver cannot** — the v1 `SendEmail` API has no field for them (only `SendRawEmail`, which takes a pre-built MIME message, does). Rather than sending without the header, that driver **fails the send** and returns a `MailerResponse` explaining why, since a silently dropped compliance header would only surface later as throttling. Use another transport for bulk mail.
 
 ### The Response
 

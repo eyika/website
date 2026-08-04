@@ -35,6 +35,12 @@ in the repo.
 
 ### Added
 
+- **Mail — custom message headers** (`header()` / `headers()`), so `List-Unsubscribe` can finally
+  be sent. Gmail and Yahoo have required it, with `List-Unsubscribe-Post: List-Unsubscribe=One-Click`,
+  on bulk mail since February 2024 — an in-body unsubscribe link does not satisfy the automated
+  check, and the resulting throttling hits your whole sending domain, transactional mail included.
+  Headers are cleared after each send and reject CR/LF. Note the **SES driver cannot** carry custom
+  headers and fails the send rather than delivering without one. See [Mail](mail).
 - **Query builder — `groupBy()`, `having()` and a chainable `select()`/`selectRaw()`.** Per-key
   aggregation — lifetime spend, order counts per customer — no longer has to be done in PHP over
   every row, or in raw SQL. `having()` whitelists its left-hand side and throws on anything that
@@ -105,6 +111,9 @@ in the repo.
 
 ### Fixed
 
+- **Mail — the Postmark driver sent its reply-to address as `bcc`.** The arguments were positional
+  and the reply-to landed in the `$bcc` slot, so replies were not routed **and** that address
+  silently received a blind copy of every message sent through Postmark.
 - **Query builder — aggregates ran on a different connection.** Every aggregate except `count()`
   opened its own connection, so one running **inside a transaction could not see that
   transaction's own writes** and silently returned a stale figure. They now use the bound
