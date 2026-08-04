@@ -89,6 +89,14 @@ in the repo.
 
 ### Fixed
 
+- **Query builder — a clause after `whereIn()` or `whereLike()` used the wrong operator.** The
+  operator index stopped advancing past those two, so the next clause re-read theirs. After
+  `whereIn()` that produced **invalid SQL** (`whereIn('sku', […])->where('locale','en')` emitted
+  `` `locale` IN :locale ``); the reverse order only appeared to work because the misalignment fell
+  off the end of the list. After `whereLike()` it was **worse and silent** — a leaked `LIKE` is
+  still valid SQL, so the following clause quietly became a substring match instead of an equality,
+  and `where('locale','en')` also matched `'en-GB'`. **If you chain a clause after `whereLike()`,
+  those queries returned wrong rows rather than failing.** `whereNull()` is unaffected.
 - **Models — not every builder method was callable statically.** `Model::orderBy('name')->get()`
   raised a raw PHP *"Non-static method … cannot be called statically"*. `orderBy`, `with` and `raw`
   were plain public methods, which PHP resolves directly — so the static call was refused before
