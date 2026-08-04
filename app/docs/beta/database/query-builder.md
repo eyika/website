@@ -221,6 +221,55 @@ DB::table('salaries')->min('amount');
 
 Further aggregates include `sum`, `group_concat`, `var_pop`, `stddev`, `bit_and`, `bit_or`, and `bit_xor`, along with `increment(column, step)` / `decrement(column, step)` for atomic counter updates.
 
+> These are available on **both** builders — `DB::table('users')->count()` and `User::count()` alike, and they respect any `where()` you have already applied.
+
+---
+
+### Grouping and Projection
+
+#### `groupBy(string|array $columns)`
+
+Aggregate per key rather than over the whole table — the database does the work, instead of you fetching every row and summing in PHP:
+
+```php
+Order::select(['customer_id'])
+     ->selectRaw('SUM(total) AS lifetime')
+     ->groupBy('customer_id')
+     ->get();
+```
+
+#### `having(string $column, mixed $operator = null, mixed $value = null)`
+
+Filter on the aggregate itself — `where()` cannot, because it is applied before grouping:
+
+```php
+Order::select(['customer_id'])
+     ->selectRaw('SUM(total) AS lifetime')
+     ->groupBy('customer_id')
+     ->having('SUM(total)', '>', 100)
+     ->get();
+```
+
+The left-hand side must be a column or a known aggregate over one (`SUM`, `COUNT`, `AVG`, `MIN`, `MAX`, `STDDEV`, `VAR_POP`, `GROUP_CONCAT`, `BIT_AND`, `BIT_OR`, `BIT_XOR`, optionally `DISTINCT`). Anything else **throws** rather than reaching the database. The compared value is always bound.
+
+#### `select(string|array $columns)` and `selectRaw(string $expression)`
+
+Project a subset of columns instead of hydrating every one:
+
+```php
+Order::select(['id', 'total'])->where('customer_id', 7)->get();
+```
+
+`select()` quotes plain identifiers. `selectRaw()` is separate because it emits your SQL **verbatim** — use it for aggregate expressions, and **never pass user input to it**:
+
+```php
+->selectRaw('SUM(total) AS lifetime')
+```
+
+The read methods also still accept a projection as an argument — `get(true, ['id', 'total'])` on a model, `get(['id', 'total'])` on `DB::table()` — which is what `DB::table()` uses, since `DB::select()` is already a raw-SELECT executor and cannot double as the chainable form.
+
+> **Clause order does not depend on call order.** `GROUP BY`, `HAVING`, `ORDER BY`, `LIMIT` and `OFFSET` are emitted in correct SQL order however you chain them, so `limit(2)->orderBy('n')` and `orderBy('n')->limit(2)` are equivalent.
+
 ---
 
 ### Collections

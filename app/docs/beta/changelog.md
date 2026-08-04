@@ -35,6 +35,12 @@ in the repo.
 
 ### Added
 
+- **Query builder — `groupBy()`, `having()` and a chainable `select()`/`selectRaw()`.** Per-key
+  aggregation — lifetime spend, order counts per customer — no longer has to be done in PHP over
+  every row, or in raw SQL. `having()` whitelists its left-hand side and throws on anything that
+  is not a column or a known aggregate; `selectRaw()` is deliberately separate from `select()`
+  because it emits your SQL verbatim, so never pass user input to it. See
+  [Query Builder](database/query-builder).
 - **Hashing** — a first-party password hasher. Atom verified passwords but gave you no way to
   create one, so every app called `password_hash()` itself. `Hash::make()` / `Hash::check()` /
   `Hash::needsRehash()` (plus `bcrypt()`) wrap PHP's password API behind `config/hashing.php` —
@@ -99,6 +105,13 @@ in the repo.
 
 ### Fixed
 
+- **Query builder — aggregates ran on a different connection.** Every aggregate except `count()`
+  opened its own connection, so one running **inside a transaction could not see that
+  transaction's own writes** and silently returned a stale figure. They now use the bound
+  connection.
+- **Query builder — trailing clauses followed call order, not SQL order.**
+  `limit(2)->orderBy('n')` produced invalid SQL while the reverse worked. `GROUP BY`, `HAVING`,
+  `ORDER BY`, `LIMIT` and `OFFSET` are now emitted in correct order however you chain them.
 - **Query builder — a clause after `whereIn()` or `whereLike()` used the wrong operator.** The
   operator index stopped advancing past those two, so the next clause re-read theirs. After
   `whereIn()` that produced **invalid SQL** (`whereIn('sku', […])->where('locale','en')` emitted
