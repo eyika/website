@@ -122,6 +122,15 @@ in the repo.
 
 ### Fixed
 
+- **Schema — `Schema::hasTable()` returned `true` for every table once anything had been written**,
+  so a migration guarded with `if (!Schema::hasTable($table))` skipped its own `CREATE` and threw
+  nothing. The check consulted `rowCount()` first, which is only meaningful for
+  `INSERT`/`UPDATE`/`DELETE`; on SQLite a `SELECT` reports the affected-row count of the last
+  **write** instead, so after any insert the check short-circuited to `true` before ever looking.
+  The failure only surfaced later as *"no such table"* at runtime.
+
+  **If you ran migrations under an affected build, check the tables are really there** — a skipped
+  create looked like a successful run. `columnExists()` was never affected.
 - **HTTP — `response()->json()` rejected valid status codes.** It checked the status against an
   internal list of the codes that happen to have a named shorthand, so `response()->json($data, 409)`
   threw *"Invalid HTTP status code"* even though `409` is a supported status **with** a `conflict()`
