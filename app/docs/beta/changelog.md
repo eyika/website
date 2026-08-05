@@ -61,6 +61,9 @@ in the repo.
 
 ### Added
 
+- **HTTP — `BaseResponse::getStatusCode()`**, so middleware can read the status of the response it
+  wrapped. `status()` is a setter and the property is protected, so this was previously only
+  observable after the response had been sent.
 - **HTTP — `Request::port()`**, which did not exist. Resolves a trusted `X-Forwarded-Port` first
   (behind a terminating proxy `SERVER_PORT` is the internal one), then the port in `Host`, then
   `SERVER_PORT`, then the scheme default. Plus `Request::trustedHeaderSet()`.
@@ -151,6 +154,19 @@ in the repo.
 
 ### Fixed
 
+- **Routing — middleware aliases were never resolved, so every `->middleware('auth')` route
+  returned a 500.** The pipeline used the alias string itself as a class name and threw
+  `Class "auth" not found`, reported from inside the `SubstituteBindings` frame. The alias map was
+  populated by the framework and read by nothing. This affected `auth`, `throttle:…` and every
+  alias declared in your Kernel — typically the whole authenticated API plus every rate-limited
+  route. Fully-qualified class names, with or without `:args`, were never affected. An unknown
+  alias now reports `Unknown middleware alias [auth]` instead of a missing-class error.
+- **HTTP — `clientIp()` could be set by the client.** It took the left-most `X-Forwarded-For`
+  entry, which is correct only if every proxy **overwrites** the header; proxies that append leave
+  that entry as whatever the caller sent. The chain is now walked from the right, skipping hops
+  that are trusted proxies. **Behaviour change:** declare every hop in `TRUSTED_PROXIES` if you
+  want the walk to reach the originating client — with only the edge proxy declared, an undeclared
+  internal hop is returned instead, which is the conservative answer.
 - **Schema — `Schema::hasTable()` returned `true` for every table once anything had been written**,
   so a migration guarded with `if (!Schema::hasTable($table))` skipped its own `CREATE` and threw
   nothing. The check consulted `rowCount()` first, which is only meaningful for

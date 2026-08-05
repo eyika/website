@@ -834,12 +834,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/eyika/atomframework.git",
-                "reference": "b157d5b4dd980bb32c4de41f48d1c399d923633b"
+                "reference": "c9cd91ed81df8e54da56810945bf9c786eeec8cc"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/eyika/atomframework/zipball/b157d5b4dd980bb32c4de41f48d1c399d923633b",
-                "reference": "b157d5b4dd980bb32c4de41f48d1c399d923633b",
+                "url": "https://api.github.com/repos/eyika/atomframework/zipball/c9cd91ed81df8e54da56810945bf9c786eeec8cc",
+                "reference": "c9cd91ed81df8e54da56810945bf9c786eeec8cc",
                 "shasum": ""
             },
             "require": {
@@ -903,7 +903,7 @@
                 "issues": "https://github.com/eyika/atomframework/issues",
                 "source": "https://github.com/eyika/atomframework/tree/main"
             },
-            "time": "2026-08-05T12:58:38+00:00"
+            "time": "2026-08-05T15:58:10+00:00"
         },
         {
             "name": "filp/whoops",
