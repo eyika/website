@@ -140,6 +140,46 @@ Security is a critical aspect of building robust and scalable applications. In t
 
    Signatures are an HMAC-SHA256 over the path and sorted query string, keyed on `APP_KEY`; expired links are rejected automatically.
 
+### 9. **Trusted Proxies and Trusted Hosts**
+
+   `host()`, `scheme()`, `port()` and `clientIp()` will believe `X-Forwarded-*` headers **only**
+   when the request arrived from an address you have named as a proxy. Nothing is trusted by
+   default, and that default is deliberate: whatever you list here can set the client IP, host and
+   scheme your application sees.
+
+   ```dotenv
+   # Literal IPs or CIDR blocks, comma separated. Empty means trust nothing.
+   TRUSTED_PROXIES=10.0.0.0/8
+   ```
+
+   `TrustProxies` in `app/Http/Middlewares/` reads this. Trust is **per header** — narrow it when
+   your proxy only sets some of them:
+
+   ```php
+   $request->setTrustedProxies(
+       ['10.0.0.0/8'],
+       Request::HEADER_X_FORWARDED_FOR | Request::HEADER_X_FORWARDED_PROTO
+   );
+   ```
+
+   That example believes the client IP and scheme but **not** `X-Forwarded-Host`, which matters if
+   you resolve tenants or build URLs from the host — otherwise a caller can choose it. Pass `null`
+   for all headers, `0` for none, or `Request::HEADER_X_FORWARDED_ALL`.
+
+   > **Do not trust loopback "just to make it work."** Behind LiteSpeed and similar the PHP process
+   > commonly sees `REMOTE_ADDR=127.0.0.1` for ordinary traffic, so trusting `127.0.0.1` trusts
+   > every client. `'*'` trusts whatever peer connects and is only correct when something upstream
+   > is guaranteed to strip inbound `X-Forwarded-*` headers.
+
+   Separately, `TRUSTED_HOSTS` is a `Host` allowlist. When set, a request whose host is not listed
+   falls back to `app.url` instead of being echoed into generated URLs — which is what stops a
+   poisoned `Host` reaching password-reset links and emails. Leave it empty to disable the check;
+   set it in production.
+
+   ```dotenv
+   TRUSTED_HOSTS=example.com,www.example.com
+   ```
+
 ### Additional Security Best Practices:
    - **HTTPS:** Enforce HTTPS across your entire application to prevent man-in-the-middle attacks.
    - **Input Validation:** Always validate user input to prevent malicious data from being processed.

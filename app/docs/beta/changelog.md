@@ -10,6 +10,32 @@ in the repo.
 
 ### Security
 
+- **Breaking — trusted-proxy header flags are now real, and nothing upstream is trusted by
+  default.** `Request::HEADER_X_FORWARDED_*` were `$_SERVER` key **strings** carrying the names of
+  Symfony's **bit flags**, so combining them with `|` — the usage those names advertise, and the
+  expression the shipped `TrustProxies` scaffold contained — produced a byte-wise-OR'd binary
+  string and a `TypeError` on the way into `setTrustedProxies()`. The `$headers` parameter was
+  dead anyway: stored, never read, so a trusted peer was believed for **every** forwarded header.
+
+  The scaffold also defaulted to trusting `127.0.0.1`, and `Kernel` registers it with no
+  arguments, so that default always applied. Behind LiteSpeed and similar the PHP process commonly
+  sees `REMOTE_ADDR=127.0.0.1` for ordinary traffic — making every request "from a proxy", so a
+  caller could set the `Host` your app resolves tenants and URLs from, and `X-Forwarded-Proto:
+  https` made a plaintext request report as secure. And `isFromTrustedProxy()` compared with
+  `in_array()`, so a CIDR entry like `10.0.0.0/8` silently matched nothing.
+
+  Flags are now real integers that gate each header independently, CIDR (v4 and v6) and `'*'` are
+  understood, and the default trusted list is **empty**. See
+  [Security → Trusted Proxies and Trusted Hosts](advanced/security).
+
+  **Upgrade:** the old scaffold passed the literal `1`, which is not a recognised flag, so such an
+  app now trusts **no** forwarded headers — fail-safe, but you must re-declare it. If you are
+  genuinely behind a proxy, set `TRUSTED_PROXIES` and pass the flags you want. If you were relying
+  on the loopback default, you were trusting your callers.
+- **`app.trusted_hosts` now ships in `config/app.php`.** The `Host`-poisoning guard read this key
+  all along, but no config file defined it, so a working security control was inert by default.
+  Set `TRUSTED_HOSTS` in production.
+
 - **Breaking — request attributes now outrank client-supplied input.** `$request->foo = $obj` writes
   to the attribute bag, but `$request->foo` resolved that bag **last**, after input, route params and
   query. So context bound by your middleware could be shadowed by a request parameter of the same
@@ -35,6 +61,9 @@ in the repo.
 
 ### Added
 
+- **HTTP — `Request::port()`**, which did not exist. Resolves a trusted `X-Forwarded-Port` first
+  (behind a terminating proxy `SERVER_PORT` is the internal one), then the port in `Host`, then
+  `SERVER_PORT`, then the scheme default. Plus `Request::trustedHeaderSet()`.
 - **HTTP — `429 Too Many Requests` and `503 Service Unavailable` responses.** There was previously
   no way to return a 429 at all — no status constant, no helper — which made rate limiting
   awkward to express. Both now exist and both take an optional `Retry-After`:
