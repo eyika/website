@@ -390,7 +390,10 @@ Common `JsonResponse` helpers:
 - `JsonResponse::notFound(string $message, mixed $data = null)` — 404
 - `JsonResponse::conflict(string $message = '', array $errors = [])` — 409
 - `JsonResponse::unprocessableEntity(string $message = 'unprocessable request', string $errors = '')` — 422
+- `JsonResponse::tooManyRequests(string $message = 'Too many requests', int|null $retryAfter = null, array $errors = [])` — 429
 - `JsonResponse::serverError(string $message = '')` — 500
+- `JsonResponse::badGateway(string $message = '')` — 502
+- `JsonResponse::serviceUnavailable(string $message = 'Service unavailable', int|null $retryAfter = null, array $errors = [])` — 503
 
 ### Views and Plain Responses
 Use the `Response` facade for HTML views, plain text, and redirects.

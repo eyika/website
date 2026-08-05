@@ -35,6 +35,17 @@ in the repo.
 
 ### Added
 
+- **HTTP — `429 Too Many Requests` and `503 Service Unavailable` responses.** There was previously
+  no way to return a 429 at all — no status constant, no helper — which made rate limiting
+  awkward to express. Both now exist and both take an optional `Retry-After`:
+
+  ```php
+  return json_response()->tooManyRequests('Rate limit exceeded', retryAfter: 60);
+  return json_response()->serviceUnavailable('Under maintenance', retryAfter: 300);
+  ```
+
+  Send `retryAfter` whenever you know when the limit resets; without it a client has nothing to
+  back off against.
 - **Mail — custom message headers** (`header()` / `headers()`), so `List-Unsubscribe` can finally
   be sent. Gmail and Yahoo have required it, with `List-Unsubscribe-Post: List-Unsubscribe=One-Click`,
   on bulk mail since February 2024 — an in-body unsubscribe link does not satisfy the automated
@@ -111,6 +122,14 @@ in the repo.
 
 ### Fixed
 
+- **HTTP — `response()->json()` rejected valid status codes.** It checked the status against an
+  internal list of the codes that happen to have a named shorthand, so `response()->json($data, 409)`
+  threw *"Invalid HTTP status code"* even though `409` is a supported status **with** a `conflict()`
+  helper. `502`, `503` and the redirect codes were rejected the same way, and with no public escape
+  hatch there was no way to send them. Any status in the `100..599` range is now accepted.
+- **HTTP — the `JsonResponse` facade was missing `conflict()` and `badGateway()`** from its
+  `@method` list, so IDEs and static analysis reported both as undefined, and it advertised
+  `unprocessableEntity()` as taking `string|array` when only a `string` is accepted.
 - **Mail — the Postmark driver sent its reply-to address as `bcc`.** The arguments were positional
   and the reply-to landed in the `$bcc` slot, so replies were not routed **and** that address
   silently received a blind copy of every message sent through Postmark.

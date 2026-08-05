@@ -106,7 +106,9 @@ return Response::json(['greeting' => 'Hello, world!'], 200);
 
 `json(array $data, int $statusCode = 200): self` JSON-encodes `$data`, sets `Content-Type: application/json; charset=utf-8`, and sets the status code.
 
-> **Gotcha**: `Response::json()` only accepts a fixed set of status codes — `200, 204, 201, 304, 400, 401, 402, 403, 404, 422, 500` — and **throws an `Exception`** for any other code. For arbitrary codes, use `Response::status($code)->body(json_encode($data))->setHeader('Content-Type', 'application/json; charset=utf-8')`, or reach for `JsonResponse` below.
+Any status code in the `100`–`599` range is accepted; anything outside it throws an `Exception`.
+
+> **Changed**: `json()` previously accepted only a fixed set of codes — `200, 204, 201, 304, 400, 401, 402, 403, 404, 422, 500` — and threw for anything else, including `409` and `502` even though both have helpers on `JsonResponse`. That restriction is gone.
 
 ### `JsonResponse` helpers
 
@@ -140,8 +142,18 @@ public function store(Request $request)
 | `notFound()` | 404 | `notFound(string $message, mixed $data = null)` |
 | `conflict()` | 409 | `conflict(string $message = '', array $errors = [])` |
 | `unprocessableEntity()` | 422 | `unprocessableEntity(string $message = 'unprocessable request', string $errors = '')` |
+| `tooManyRequests()` | 429 | `tooManyRequests(string $message = 'Too many requests', int\|null $retryAfter = null, array $errors = [])` |
 | `serverError()` | 500 | `serverError(string $message = '')` |
 | `badGateway()` | 502 | `badGateway(string $message = '')` |
+| `serviceUnavailable()` | 503 | `serviceUnavailable(string $message = 'Service unavailable', int\|null $retryAfter = null, array $errors = [])` |
+
+`tooManyRequests()` and `serviceUnavailable()` take an optional `$retryAfter` **in seconds**, which
+is emitted as the `Retry-After` header. Send it whenever you know when the limit or outage clears —
+without it a client has nothing to back off against and will usually just retry immediately.
+
+```php
+return JsonResponse::tooManyRequests('Rate limit exceeded', retryAfter: 60);
+```
 
 ```php
 use Eyika\Atom\Framework\Support\Facade\JsonResponse;
@@ -191,6 +203,7 @@ BaseResponse::STATUS_FORBIDDEN;             // 403
 BaseResponse::STATUS_NOT_FOUND;             // 404
 BaseResponse::STATUS_CONFLICT;              // 409
 BaseResponse::STATUS_UNPROCESSABLE_ENTITY;  // 422
+BaseResponse::STATUS_TOO_MANY_REQUESTS;     // 429
 BaseResponse::STATUS_INTERNAL_SERVER_ERROR; // 500
 BaseResponse::STATUS_BAD_GATEWAY;           // 502
 BaseResponse::STATUS_SERVICE_NOT_AVAILABLE; // 503
