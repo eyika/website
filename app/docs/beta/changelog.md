@@ -10,6 +10,22 @@ in the repo.
 
 ### Security
 
+- **Breaking — `Request::cookie()` returns the cookie's value, not the `Cookie` object.**
+  `query()` and `input()` return values, so `$request->cookie('t') ?? $request->query('t')` was
+  string-or-object depending on which branch hit. Anything defensive — `is_string()`, `===`,
+  `json_encode()` — then silently discarded the cookie path, so a cookie could appear not to work
+  while nothing threw or logged.
+
+  Reading and writing are different jobs: a `Cookie` describes a `Set-Cookie` header (path,
+  domain, `SameSite`, expiry), and none of those exist on an inbound cookie — the browser sends
+  only `name=value`. This matches Laravel, where reading yields a string.
+
+  `cookie('x')` gives the value, `cookie()` gives `name => value`, `cookieObject('x')` gives the
+  wrapper, and `cookies()` is unchanged.
+
+  **Upgrade:** `->cookie('x')->getValue()` now raises *call to a member function on string* —
+  remove the `->getValue()`, or use `cookieObject('x')`.
+
 - **Breaking — trusted-proxy header flags are now real, and nothing upstream is trusted by
   default.** `Request::HEADER_X_FORWARDED_*` were `$_SERVER` key **strings** carrying the names of
   Symfony's **bit flags**, so combining them with `|` — the usage those names advertise, and the
