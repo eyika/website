@@ -170,6 +170,18 @@ in the repo.
 
 ### Fixed
 
+- **Exceptions — uncaught throwables never reached `storage/logs`.** They were recorded with
+  `error_log()`, which writes to **PHP's** error log (stderr under the dev server, wherever
+  `php.ini` points under FPM) — so a 500 left the application's own log empty, which is a dead end
+  exactly when you can least afford one. They now go to the application logger, with a fallback to
+  PHP's log if logging itself fails, and a one-line summary on PHP's log either way so `php -S` and
+  `docker logs` stay useful. Traces are capped and argument-free: arguments are what make a trace
+  enormous, and they can put credentials passed to a `connect()` call into your log.
+- **Mail — `FailoverDriver` could never report a successful send.** It read the driver response as
+  an array when `MailerResponse` is a plain object, so every send raised *Cannot use object of type
+  MailerResponse as array* — an `Error`, which escaped the driver's `catch (Exception)` and killed
+  the send instead of failing over. Fixed, and the catch widened to `Throwable` so a driver failing
+  with an `Error` (bad config, missing SDK class) now fails over as intended.
 - **Routing — middleware aliases were never resolved, so every `->middleware('auth')` route
   returned a 500.** The pipeline used the alias string itself as a class name and threw
   `Class "auth" not found`, reported from inside the `SubstituteBindings` frame. The alias map was
