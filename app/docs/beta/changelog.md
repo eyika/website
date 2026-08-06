@@ -10,6 +10,23 @@ in the repo.
 
 ### Security
 
+- **`guarded` is now enforced when a model is JSON-encoded.** `guarded` promises a column never
+  leaves the application, and `toArray()` honoured it — but nothing on the **encode** path called
+  `toArray()`, so a model reaching `json_encode()` was serialized from its declared public
+  properties instead. `Model` now implements `JsonSerializable` and `Contracts\Arrayable`, so the
+  guard applies to every shape: a bare model, an array of models, a `Traversable`, a `Collection`.
+
+  A second defect kept it broken independently: `Collection` tested `instanceof` against
+  `Support\Arrayable` / `Support\Jsonable`, which are concrete **classes**, not the same-named
+  **interfaces** under `Support\Contracts` — so no model ever matched and each was encoded raw.
+
+  **Assessing your own exposure:** `response()->json(['w' => $model])` was already safe — that path
+  calls `toArray()`. The gap was every other route to `json_encode()`, especially a `Collection`.
+  A column set through `__set` was never public and could not leak; what escaped from a plain model
+  was internal plumbing (`table`, `primaryKey`, `softdeletes`). **A data column could only leak if
+  your model declares it as a public property.**
+
+  `toArray(false)` still returns guarded columns for server-side callers.
 - **Breaking — `Request::cookie()` returns the cookie's value, not the `Cookie` object.**
   `query()` and `input()` return values, so `$request->cookie('t') ?? $request->query('t')` was
   string-or-object depending on which branch hit. Anything defensive — `is_string()`, `===`,
