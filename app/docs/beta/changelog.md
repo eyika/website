@@ -187,6 +187,15 @@ in the repo.
 
 ### Fixed
 
+- **HTTP — a `204 No Content` wrote two bytes of body.** `noContent()` sent `[]` after the headers,
+  because it passes no data and `json_encode` of the resulting empty array is the string `"[]"`.
+  204, 304 and 1xx promise that nothing follows the headers, so a client stops reading there and
+  treats trailing bytes as the start of the next message. `curl` shrugs and shows a healthy 204;
+  Node's HTTP parser rejects the exchange with *Parse Error: Data after 'Connection: close'* — so a
+  Node proxy in front of the API turned a clean 204 into a 500.
+
+  The rule is now enforced when the response is sent, so `status(204)->body(…)` and a 304 drop
+  their body as well, and `Content-Type`/`Content-Length` are not sent for those statuses.
 - **Exceptions — uncaught throwables never reached `storage/logs`.** They were recorded with
   `error_log()`, which writes to **PHP's** error log (stderr under the dev server, wherever
   `php.ini` points under FPM) — so a 500 left the application's own log empty, which is a dead end
