@@ -199,6 +199,13 @@ Testing is a crucial aspect of software development that ensures your applicatio
    > the integration base `Eyika\Atom\Framework\Support\Testing\TestCase` instead, which boots the
    > whole app (providers included) and gives you `get()`/`postJson()`/`TestResponse`.
 
+   > **Config overrides are cleaned up for you.** `Config` is process-wide static state, so a
+   > `Config::set()` would otherwise persist for the rest of the run and be visible to every later
+   > test. Both base classes snapshot the configuration in `setUp()` and restore it in `tearDown()`,
+   > so you can flip a feature flag in a test without restoring it by hand. If you roll your own
+   > base class, call `Config::snapshot()` / `Config::restore()` yourself — see
+   > [Configuration](../configuration).
+
 ### 7. **Mocking and Stubbing**
    Mocking lets you simulate dependencies and isolate the component you're testing. Use PHPUnit's built-in mock builder, and swap the real service in the container with the mock via `instance()`.
 

@@ -126,6 +126,48 @@ $appName = config('app.name');
 
 This retrieves the `name` value from the `app.php` configuration file.
 
+### Overriding a Value at Runtime
+
+`config()` is read-only. To **set** a value — typically to exercise a config-driven branch such as
+a feature flag or a kill switch in a test — use the `Config` class directly:
+
+```php
+use Eyika\Atom\Framework\Support\Config;
+
+Config::set('platform.direct_settlement_enabled', false);
+Config::get('platform.direct_settlement_enabled');   // false
+```
+
+There is deliberately **no `Config` facade** — the class is already static, so a facade would add
+indirection and nothing else. `Config::get()` is equivalent to the `config()` helper.
+
+> **`Config` is process-wide static state.** A `set()` is not scoped to a request or a test: it
+> persists for the life of the process, so an override made in one test would otherwise be visible
+> to every test that runs after it.
+>
+> The framework's testing base classes (`Support\Testing\TestCase` and
+> `Support\Testing\DatabaseTestCase`) snapshot the configuration in `setUp()` and restore it in
+> `tearDown()`, so a test can override freely without cleaning up. If you have your own base class,
+> do the same:
+>
+> ```php
+> protected function setUp(): void
+> {
+>     parent::setUp();
+>     $this->config = Config::snapshot();
+> }
+>
+> protected function tearDown(): void
+> {
+>     Config::restore($this->config);
+>     parent::tearDown();
+> }
+> ```
+>
+> Reach for `Config::clearCache()` only when you mean it — it drops the entire loaded config **and**
+> deletes the compiled config-cache artifact, forcing the next access to reload from disk. It is the
+> tool for `config:clear`, not for undoing an override.
+
 ## Adding Your Own Configuration Files
 
 You can add custom configuration files to the `config` directory. For example, to add a `social.php` configuration file:
