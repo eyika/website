@@ -55,7 +55,11 @@ return new class extends Migration
 #### Common `Blueprint` column methods
 - **`id()`**: Adds an auto-incrementing primary key.
 - **`string($name, $length = 255)`**: Adds a `VARCHAR` column.
-- **`integer()` / `unsignedBigInteger()`**: Integer columns.
+- **`integer()` / `bigInteger()` / `unsignedInteger()` / `unsignedBigInteger()`**: Integer columns.
+- **`tinyInteger()` / `smallInteger()` / `mediumInteger()`** (and their `unsigned…` forms): narrower
+  integers, for bounded counters and the like. Widths are per-driver — MySQL emits
+  `TINYINT`/`SMALLINT`/`MEDIUMINT`, Postgres has neither `TINYINT` nor `MEDIUMINT` so it uses
+  `SMALLINT`/`INTEGER`, and SQLite has type affinity rather than widths.
 - **`boolean()`**, **`text()`**, **`json()`**, **`decimal()`**, **`enum()`**, **`timestamp()`**: Additional column types.
 - **`timestamps()`**: Adds `created_at` and `updated_at`.
 - **`softDeletes()`**: Adds a nullable `deleted_at` column.

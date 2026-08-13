@@ -48,10 +48,13 @@ class CheapCountryController
 {
     public function store(Request $request)
     {
-        if (!$validated = Validator::validate($request, [
+        // Compare with === false, NOT truthiness. `validate()` returns the validated data, and a
+        // rule set where nothing is `required` can legitimately return an EMPTY array — which is
+        // falsy, so `if (!$validated = …)` would report a failure on a request that passed.
+        if (($validated = Validator::validate($request, [
             'name'      => 'required|string',
             'continent' => "required|string|in:$continents",
-        ])) {
+        ])) === false) {
             return JsonResponse::badRequest('errors in request', Validator::$errors);
         }
 
@@ -138,7 +141,12 @@ Validator::validate($request, [
 ]);
 ```
 
-> There is no `nullable` rule — an unrecognised rule name (without a `:` argument) is simply ignored and passes. Rely on `sometimes` and the null-skipping behaviour above rather than inventing rule names.
+> `nullable` is accepted, but it is a **no-op** — nullability is already the default, as described
+> above. It exists because it is the first thing most people reach for.
+>
+> **An unrecognised rule name now throws** an `InvalidArgumentException`. It used to be silently
+> ignored and treated as passing, which meant a typo (`strng`, `requried`) quietly disabled that
+> rule — a validation hole that no test would catch.
 
 ---
 
@@ -172,6 +180,10 @@ All rules below are verified against `Validator.php`. Rules that take an argumen
 - **phone** — valid phone-number string.
 - **json** — valid JSON string.
 - **base64** — valid base64 string.
+- **alpha** — letters only (`ctype_alpha`); an empty string fails.
+- **alpha_num** — letters and digits only (`ctype_alnum`); an empty string fails.
+- **date** — a `DateTimeInterface`, or a string `strtotime()` can parse. Deliberately permissive
+  about format, but a string denoting no time at all fails.
 
 ### Files
 

@@ -10,6 +10,17 @@ in the repo.
 
 ### Security
 
+- **Database connections now honour their configured PDO `options`.** `config('database.connections.<driver>.options')`
+  was never merged into the PDO option list. The scaffolded config ships that key populated with
+  `PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA')`, so **a deployment that set that variable
+  believed it had TLS to its database and did not.** `PDO::MYSQL_ATTR_INIT_COMMAND` — the one-line
+  way to pin a session timezone — was unreachable for the same reason. `null` values are dropped, so
+  the scaffolded SSL key stays harmless when its env var is unset.
+- **Breaking — an unknown validation rule now throws instead of silently passing.** An unrecognised
+  rule name returned "valid", so `'nullable|string'` looked like it worked while doing nothing, and
+  a typo (`strng`) disabled that rule with no signal. `nullable` is now recognised as an explicit
+  no-op, and **`alpha`, `alpha_num` and `date` are now implemented** rather than rejected — they were
+  silent no-ops, so `date` validated nothing at all. **Check your rule strings before upgrading.**
 - **`guarded` is now enforced when a model is JSON-encoded.** `guarded` promises a column never
   leaves the application, and `toArray()` honoured it — but nothing on the **encode** path called
   `toArray()`, so a model reaching `json_encode()` was serialized from its declared public
@@ -94,6 +105,16 @@ in the repo.
 
 ### Added
 
+- **Schema — narrow integer columns**: `tinyInteger()`, `unsignedTinyInteger()`, `smallInteger()`,
+  `unsignedSmallInteger()`, `mediumInteger()`, `unsignedMediumInteger()`. The integer family
+  previously stopped at `integer`/`bigInteger` while the text and blob families had their narrow
+  variants, and the gap only surfaced when a migration ran. Widths are per-grammar.
+- **Query builder — `selectRaw()` on `DB::table()`**, which previously existed only on the model
+  builder even though `groupBy()`/`having()` existed on both.
+- **Validation — `Validator::passes()` / `Validator::fails()`.** `validate()` returns `array|false`,
+  so `if (!$input = Validator::validate(…))` is wrong against an all-optional rule set: an empty
+  body validates successfully and returns `[]`, which is falsy — reporting a failure on a request
+  that passed. Use these when you only need the verdict.
 - **HTTP — `BaseResponse::getStatusCode()`**, so middleware can read the status of the response it
   wrapped. `status()` is a setter and the property is protected, so this was previously only
   observable after the response had been sent.
@@ -187,6 +208,15 @@ in the repo.
 
 ### Fixed
 
+- **Query builder — `DB::select()` ignored its bindings.**
+  `DB::select('… WHERE id = ?', [1])` returned an empty result against a table with matching rows —
+  the method took a single parameter, so PHP discarded the bindings silently. It looked
+  parameterised and returned a plausible answer, leaving string interpolation as the only thing
+  that appeared to work. Positional (`?`) and named (`:key`) bindings both work now, on every raw
+  path.
+- **Cache — the `array` store was unusable.** `hasItem()` raised *Call to a member function
+  getExpiration() on array* for every stored key, because `save()` stores a plain array. `getItem()`
+  was separately broken on a miss.
 - **HTTP — a `204 No Content` wrote two bytes of body.** `noContent()` sent `[]` after the headers,
   because it passes no data and `json_encode` of the resulting empty array is the string `"[]"`.
   204, 304 and 1xx promise that nothing follows the headers, so a client stops reading there and
