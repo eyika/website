@@ -105,6 +105,16 @@ in the repo.
 
 ### Added
 
+- **Config — `Config::snapshot()` / `Config::restore()`, and config is now isolated between tests.**
+  `Config` is process-wide static state, so a `Config::set()` persisted for the rest of the run and
+  was visible to every test after it — apps were restoring by hand. `clearCache()` was never the
+  answer: it wipes the whole array *and* deletes the compiled cache artifact.
+
+  `Support\Testing\TestCase` and `Support\Testing\DatabaseTestCase` now snapshot in `setUp()` and
+  restore in `tearDown()`, so a test can flip a feature flag without cleaning up. The
+  [Configuration](configuration) page also now documents `Config::set()`/`get()`/`clearCache()` —
+  they existed and were simply unmentioned, so the page read as though there were no way to
+  override a value at runtime.
 - **Schema — narrow integer columns**: `tinyInteger()`, `unsignedTinyInteger()`, `smallInteger()`,
   `unsignedSmallInteger()`, `mediumInteger()`, `unsignedMediumInteger()`. The integer family
   previously stopped at `integer`/`bigInteger` while the text and blob families had their narrow
