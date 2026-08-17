@@ -10,6 +10,18 @@ in the repo.
 
 ### Security
 
+- **Public assets are no longer content-sniffed, and can no longer be read from outside the public
+  directory.** `ServePublicAssets` now sends `X-Content-Type-Options: nosniff` with every asset —
+  which matters most if you serve user-uploaded files from your own origin, since a **polyglot**
+  (bytes that are a valid image *and* parse as HTML, e.g. `GIF89a<script>…`) becomes same-origin
+  stored XSS when a browser sniffs it. Note this does **not** make SVG safe: `image/svg+xml` is
+  honoured rather than sniffed, and SVG is scriptable.
+
+  Found while fixing that, and more serious: the raw request URI was concatenated onto
+  `public_path()` with no normalisation, so `..` escaped the webroot. The extension allowlist did
+  not prevent it — the traversal target only had to *end* in an allowed extension, and
+  `.json`/`.pdf`/`.md` outside the webroot is where service-account keys and uploaded documents
+  live. Paths are now resolved and confined to the public directory.
 - **Database connections now honour their configured PDO `options`.** `config('database.connections.<driver>.options')`
   was never merged into the PDO option list. The scaffolded config ships that key populated with
   `PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA')`, so **a deployment that set that variable
