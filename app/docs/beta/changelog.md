@@ -117,6 +117,12 @@ in the repo.
 
 ### Added
 
+- **HTTP — public assets now revalidate.** `ServePublicAssets` sends `ETag` and `Last-Modified`,
+  honours `If-None-Match` and `If-Modified-Since`, and answers `304 Not Modified` when the client's
+  copy is current — so an unchanged asset costs a header exchange instead of a re-download.
+  `Cache-Control` defaults to `public, max-age=0, must-revalidate`, because this middleware serves
+  *every* public asset and cannot tell which filenames are content-hashed. If yours **are** hashed,
+  opt into real caching with `app.asset_cache_max_age` (seconds).
 - **Config — `Config::snapshot()` / `Config::restore()`, and config is now isolated between tests.**
   `Config` is process-wide static state, so a `Config::set()` persisted for the rest of the run and
   was visible to every test after it — apps were restoring by hand. `clearCache()` was never the
