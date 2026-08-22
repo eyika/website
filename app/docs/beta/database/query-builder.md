@@ -289,6 +289,43 @@ Order::select(['id', 'total'])->where('customer_id', 7)->get();
 
 The read methods also still accept a projection as an argument — `get(true, ['id', 'total'])` on a model, `get(['id', 'total'])` on `DB::table()` — which is what `DB::table()` uses, since `DB::select()` is already a raw-SELECT executor and cannot double as the chainable form.
 
+#### `whereRaw(string $sql, array $bind = [])`
+
+For predicates the builder cannot express — a column compared to another column, a function call, a
+window over the row. Available on both builders.
+
+```php
+Stock::whereRaw('quantity < reorder_level')->get();
+DB::table('stock')->whereRaw('quantity > :floor', ['floor' => 10])->get();
+```
+
+Successive calls accumulate with `AND`, and each fragment is parenthesised when emitted, so an `OR`
+inside a fragment cannot rebind against the surrounding `AND`s.
+
+`$bind` is named, and the names are rewritten to a unique prefix before use — so a raw `:quantity`
+cannot collide with the bind that `where('quantity', …)` generates.
+
+Like `selectRaw()`, the fragment is emitted **verbatim**: never build it from user input. Pass
+values through `$bind`, which is exactly what makes that unnecessary.
+
+It applies to `update()` and `delete()` as well as reads.
+
+#### Joins and column ambiguity
+
+When a join is present, bare columns are qualified with the base table automatically — in the select
+list, in `WHERE`, and in `ORDER BY`/`GROUP BY`. Without that, a model selecting its own `fillable`
+columns would break the moment it joined any table sharing a column name, `id` being the universal
+case.
+
+```php
+OrderItem::join('orders', 'order_items.order_id', '=', 'orders.id')
+    ->where('orders.status', 'paid')   // qualified: the parent's column
+    ->where('id', 10)                  // bare: resolves to order_items.id
+    ->get();
+```
+
+Queries without a join are unaffected and emit exactly the SQL they did before.
+
 > **Clause order does not depend on call order.** `GROUP BY`, `HAVING`, `ORDER BY`, `LIMIT` and `OFFSET` are emitted in correct SQL order however you chain them, so `limit(2)->orderBy('n')` and `orderBy('n')->limit(2)` are equivalent.
 
 ---
