@@ -133,12 +133,33 @@ Adds an `OR WHERE` condition to the query.
 DB::table('users')->where('status', 'active')->orWhere('role', '=', 'admin')->get();
 ```
 
-#### `whereLike(string $column, $value)`
-Adds a `WHERE LIKE` condition.
+#### `whereLike(string $column, $value, bool $escape = false)`
+Adds a case-insensitive `WHERE LIKE` condition. **The term is wrapped in `%…%` for you** — pass the
+text you are searching for, not a pattern.
 
 ```php
-DB::table('users')->whereLike('name', '%John%')->get();
+DB::table('users')->whereLike('name', 'John')->get();
 ```
+
+Pass `$escape = true` for a term a **user typed**:
+
+```php
+Product::whereLike('title', $request->query('q'), escape: true)->get();
+```
+
+`%` and `_` are LIKE metacharacters, so without it `?q=%` matches every row and `?q=t_e` matches
+"tee" and "the" alike. Escaping them yourself is not portable — **MySQL's LIKE has a default escape
+character and SQLite's has none**, so the same hand-escaped pattern means different things in
+production and in a test suite. The `ESCAPE` clause is emitted per driver, which is why this belongs
+on the builder.
+
+It is opt-in so the three-argument form below, which passes its own wildcards, keeps meaning what it
+says.
+
+#### `where(string $column, 'LIKE', $pattern)`
+The three-argument form passes your pattern through unchanged, wildcards included. Use it when you
+are constructing the pattern deliberately; use `whereLike(..., escape: true)` for anything a
+stranger typed.
 
 #### `whereNull(string $column)`
 Adds a `WHERE column IS NULL` condition.

@@ -117,6 +117,25 @@ in the repo.
 
 ### Added
 
+- **Query builder — `whereRaw()` on both builders**, for predicates the builder cannot express: a
+  column compared to another column, a function call, a window over the row.
+
+  ```php
+  Stock::whereRaw('quantity < reorder_level')->get();
+  DB::table('stock')->whereRaw('quantity > :floor', ['floor' => 10])->get();
+  ```
+
+  Calls accumulate with `AND` and each fragment is parenthesised, so an `OR` inside one cannot
+  rebind against the surrounding `AND`s. Bind names are rewritten to a unique prefix, so a raw
+  `:quantity` cannot collide with the bind `where('quantity', …)` generates. The fragment itself is
+  emitted verbatim — never build it from user input. It applies to `update()`/`delete()` as well as
+  reads.
+- **Query builder — `whereLike()` can escape user-typed wildcards**:
+  `whereLike('title', $term, escape: true)`. Without it `?q=%` matches every row and `?q=t_e`
+  matches "tee" and "the" alike. Opt-in, so the three-argument `where(…, 'LIKE', "%$term%")` form
+  keeps meaning what it says. Escaping at the call site is not portable — **MySQL's LIKE has a
+  default escape character and SQLite's has none** — so the `ESCAPE` clause is emitted per driver.
+  See [Query Builder](database/query-builder).
 - **HTTP — public assets now revalidate.** `ServePublicAssets` sends `ETag` and `Last-Modified`,
   honours `If-None-Match` and `If-Modified-Since`, and answers `304 Not Modified` when the client's
   copy is current — so an unchanged asset costs a header exchange instead of a re-download.
@@ -236,6 +255,13 @@ in the repo.
 
 ### Fixed
 
+- **Query builder — a `join()` made ordinary queries fail with "ambiguous column name".** A model
+  selects its own `fillable` columns unqualified, so joining any table sharing a column name —
+  `id`, universally — broke the SELECT before a `WHERE` was involved. Bare columns are now qualified
+  with the base table in the select list, `WHERE`, `ORDER BY` and `GROUP BY`, **only when a join is
+  present**, so unjoined queries are unchanged. Fixed with it: a dotted column naming the model's
+  own table emitted a self-join, and one naming an already-joined table joined it twice — so
+  `join('orders', …)->where('orders.status', …)` failed on the qualified column itself.
 - **Query builder — `DB::select()` ignored its bindings.**
   `DB::select('… WHERE id = ?', [1])` returned an empty result against a table with matching rows —
   the method took a single parameter, so PHP discarded the bindings silently. It looked

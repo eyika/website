@@ -119,7 +119,8 @@ A `delete()` with neither an id nor a `where()` filter is refused (it would dele
 ```php
 $query = User::where('column', '=', 'value');
 $query = User::whereIn('column', ['value1', 'value2']);
-$query = User::whereLike('column', '%value%');
+$query = User::whereLike('column', 'value');            // the term is wrapped in %…% for you
+$query = User::whereLike('column', $typed, escape: true); // escape wildcards a user typed
 $query = User::whereNotIn('column', ['value1', 'value2']);
 $query = User::whereNotLike('column', '%value%');
 $query = User::whereBetween('column', [1, 10]);
