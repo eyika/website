@@ -255,6 +255,20 @@ in the repo.
 
 ### Fixed
 
+- **`app($key)` now resolves that binding.** `app()` took no arguments, so `app('some.binding')`
+  silently returned the Application and the next `->method()` failed with *Call to undefined method
+  Application::x()*. Wrapped in a `try/catch` — where a resolution usually sits — that became a
+  plausible **empty result** rather than an error. Use `app()` for the container, `app($key)` to
+  resolve; both work now.
+- **A model may declare `protected $table`.** The base declared it `public`, so the Laravel-default
+  `protected $table` fatalled at class load. `fillable`/`guarded`/`casts` beside it are
+  `protected const`, which is what made this a trap rather than a preference. Models already
+  written with `public $table` are unaffected.
+- **A missing service provider no longer bricks the application.** Auto-discovery instantiated every
+  provider in the package manifest without checking the class exists, so a `vendor/` directory out
+  of step with `installed.json` fatalled the app at boot — **including `artisan`**, the command you
+  would use to repair it. Missing providers are now skipped with a warning telling you to run
+  `composer install`.
 - **Query builder — a `join()` made ordinary queries fail with "ambiguous column name".** A model
   selects its own `fillable` columns unqualified, so joining any table sharing a column name —
   `id`, universally — broke the SELECT before a `WHERE` was involved. Bare columns are now qualified

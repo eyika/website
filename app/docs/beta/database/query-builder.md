@@ -156,6 +156,13 @@ on the builder.
 It is opt-in so the three-argument form below, which passes its own wildcards, keeps meaning what it
 says.
 
+> **"Case-insensitive" is ASCII-only on SQLite.** The predicate compiles to
+> `LOWER(col) LIKE LOWER(:term)`, and SQLite's built-in `LOWER()` only folds ASCII — so `café` does
+> not match `CAFÉ` there, while MySQL with a `utf8mb4_*_ci` collation does. If your data has
+> accented or non-Latin text and your suite runs on SQLite, fold the term yourself with
+> `mb_strtolower()` and compare in PHP, or build SQLite with ICU. The wildcard-escaping half is
+> handled for you; the case-folding half is not.
+
 #### `where(string $column, 'LIKE', $pattern)`
 The three-argument form passes your pattern through unchanged, wildcards included. Use it when you
 are constructing the pattern deliberately; use `whereLike(..., escape: true)` for anything a
