@@ -162,7 +162,7 @@ BroadcastManager::channel('orders.{orderId}', function ($user, $orderId) {
 
 The `{orderId}` placeholder is extracted from the channel name and passed to your callback. When a subscription is authenticated, `BroadcastManager::authenticate($user, $channel)` matches the requested channel against registered patterns and invokes the first matching callback.
 
-This file is loaded by a **`BroadcastServiceProvider`** in your application, which also binds the manager into the container. A typical provider (as used in fx-data-server):
+This file is loaded by a **`BroadcastServiceProvider`** in your application, which also binds the manager into the container. A typical provider looks like this:
 
 ```php
 <?php

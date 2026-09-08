@@ -62,7 +62,7 @@ public static function verifyRole($user, $_role)
 
 ### 3. **Enforcing authorization with middleware**
 
-Because there is no `can` middleware in the framework, route-level authorization is enforced with **application middleware**. This is the primary, recommended pattern. A production app (fx-data-server) ships two examples you can copy.
+Because there is no `can` middleware in the framework, route-level authorization is enforced with **application middleware**. This is the primary, recommended pattern. The two below are drawn from a production app and can be copied as-is.
 
 **Role middleware** — variadic role list, checks each against the authenticated user:
 
