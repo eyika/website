@@ -20,7 +20,7 @@
    This will install the framework and set up the basic folder structure. See the [Getting Started](getting-started#installation) guide for the full setup flow (`.env`, `key:generate`, serving the app).
 
 ### 6. **Can I use this framework for a production application?**
-   Yes, Although this framework is still at **beta** stage, it is designed for production-ready applications and it currently powers two production apps — <a href="https://backtestfx.com" target="_blank">Backtestfx</a> and <a href="https://sendmani.com" target="_blank">Sendmani</a> — with a third, Variki, in development. However, it’s recommended to perform thorough testing and review the available features before deploying your application to ensure it meets your needs.
+   Yes, Although this framework is still at **beta** stage, it is designed for production-ready applications and there are currently three production apps powered by Atom: <a href="https://backtestfx.com" target="_blank">Backtestfx</a>, <a href="https://sendmani.com" target="_blank">Sendmani</a> and <a href="https://variki.com.ng" target="_blank">Variki</a>. However, it’s recommended to perform thorough testing and review the available features before deploying your application to ensure it meets your needs.
 
 ### 7. **How do I contribute to the framework?**
    Contributions are always welcome! Please refer to the [Contributing](contributing) section in the documentation for detailed instructions on how to fork the repository, create pull requests, and ensure your changes adhere to the project's standards.
