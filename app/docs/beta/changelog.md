@@ -21,7 +21,9 @@ in the repo.
   `public_path()` with no normalisation, so `..` escaped the webroot. The extension allowlist did
   not prevent it — the traversal target only had to *end* in an allowed extension, and
   `.json`/`.pdf`/`.md` outside the webroot is where service-account keys and uploaded documents
-  live. Paths are now resolved and confined to the public directory.
+  live. Anything outside the public directory answers 404. *(That confinement was originally
+  `realpath()`-based, which also refused legitimate symlinks — see the lexical-confinement entry
+  under Fixed. The traversal defence is unchanged; only how containment is decided.)*
 - **Database connections now honour their configured PDO `options`.** `config('database.connections.<driver>.options')`
   was never merged into the PDO option list. The scaffolded config ships that key populated with
   `PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA')`, so **a deployment that set that variable
@@ -255,6 +257,18 @@ in the repo.
 
 ### Fixed
 
+- **Serving `public/storage` no longer 404s.** The asset middleware confined requests with
+  `realpath()`, which collapses `..` **and** resolves symlinks in one step — so it refused
+  `public/storage`, the symlink `storage:link` creates, and every uploaded file 404'd. It showed
+  only under `artisan serve`, because Apache and LiteSpeed follow symlinks themselves and the
+  request never reaches PHP; and it failed silently, with the page rendering around the gap.
+
+  Traversal is a property of the **request path**; following a symlink is a **deployment decision**
+  you made. Containment is now decided lexically before the filesystem is consulted, so `../`
+  escapes are still refused — earlier than before — while your symlinks work. Development and
+  production now agree, since this is what the web server in front of you already does.
+- **`Response::download()` had the same blind spot** with `filesystem.download_base` configured: a
+  file behind a symlink inside that base was refused. Fixed the same way.
 - **`app($key)` now resolves that binding.** `app()` took no arguments, so `app('some.binding')`
   silently returned the Application and the next `->method()` failed with *Call to undefined method
   Application::x()*. Wrapped in a `try/catch` — where a resolution usually sits — that became a
