@@ -262,6 +262,14 @@ in the repo.
 
 ### Fixed
 
+- **Range replies emit `206`, and redirects emit their own status.** A code passed to
+  `Response::setHeader($key, $value, $code)` was replayed into PHP's `header($h, $replace, $code)`,
+  whose third argument *forces* the response code — so it overwrote the status already emitted. A
+  range reply went out as **200** with a perfectly correct `Content-Range` beside it, which matters
+  because a 200 is a *complete* representation to any cache: a 500-byte "whole video" could be
+  stored against that URL and served to everyone after. A code given to `setHeader()` now sets the
+  status directly, and headers can no longer carry one. `redirect()` and `back()` set their status
+  only by baking it into the `Location` header, so this also fixes **`redirect()` emitting 200**.
 - **Video and audio are served.** The asset allowlist had no video type, so a stored `.mp4` fell
   through to the router and came back as an error page. `mp4`, `webm`, `ogv`, `mov`, `mp3`, `m4a`,
   `wav` and `ogg` now work, with explicit MIME types — `mime_content_type()` reports
