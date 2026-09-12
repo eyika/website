@@ -10,6 +10,11 @@ in the repo.
 
 ### Security
 
+- **SVG is now served with a script-neutralising CSP.** `nosniff` cannot help SVG: `image/svg+xml` is
+  *honoured* rather than sniffed, so an SVG navigated to directly is a scriptable document on your
+  origin. It stays servable — apps serve their own bundled icons — but now carries a CSP that stops
+  script execution while the image still renders.
+
 - **Public assets are no longer content-sniffed, and can no longer be read from outside the public
   directory.** `ServePublicAssets` now sends `X-Content-Type-Options: nosniff` with every asset —
   which matters most if you serve user-uploaded files from your own origin, since a **polyglot**
@@ -257,6 +262,17 @@ in the repo.
 
 ### Fixed
 
+- **Video and audio are served.** The asset allowlist had no video type, so a stored `.mp4` fell
+  through to the router and came back as an error page. `mp4`, `webm`, `ogv`, `mov`, `mp3`, `m4a`,
+  `wav` and `ogg` now work, with explicit MIME types — `mime_content_type()` reports
+  `application/octet-stream` for webm and mp3, and a browser downloads that rather than playing it.
+  Like the symlink fix, this only broke local development; Apache and LiteSpeed never reach PHP.
+- **Range requests (`206 Partial Content`).** A `<video>` element will not let the user seek without
+  `Accept-Ranges`, and without ranges every request read the whole file into memory. Suffix ranges,
+  clamping, and `416` when unsatisfiable are all handled.
+- **The error page no longer reports HTTP 200.** A missing route came back `200 text/html` with an
+  error page in the body, so anything reading the status — a health check, a link checker, a build
+  step — saw success. `NotFoundHttpException` now renders `404`.
 - **Serving `public/storage` no longer 404s.** The asset middleware confined requests with
   `realpath()`, which collapses `..` **and** resolves symlinks in one step — so it refused
   `public/storage`, the symlink `storage:link` creates, and every uploaded file 404'd. It showed
