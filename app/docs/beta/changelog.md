@@ -262,6 +262,15 @@ in the repo.
 
 ### Fixed
 
+- **BREAKING — `increment()` / `decrement()` return the number of rows changed, and no longer report
+  failure on success.** `DB::table(...)->increment($col)` read its result backwards, and what it read
+  was a `PDOStatement` — an object, so always truthy — while PDO raises on error rather than
+  returning anything falsy. The `return true` was unreachable: **a successful increment returned
+  `false`, every time**, which is why callers fell back to read-modify-write and the lost-update race
+  it brings. The model builder had the same line without the inverted test and returned a bare `true`
+  regardless. Both now return rows changed (`0` when nothing matched), matching `update()`. A `$step`
+  of `0`, which emitted invalid SQL, is now a no-op. See
+  [Query Builder](database/query-builder#crud-operations).
 - **Range replies emit `206`, and redirects emit their own status.** A code passed to
   `Response::setHeader($key, $value, $code)` was replayed into PHP's `header($h, $replace, $code)`,
   whose third argument *forces* the response code — so it overwrote the status already emitted. A

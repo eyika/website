@@ -115,6 +115,35 @@ Deletes records matching the current filters (or a given id).
 DB::table('users')->where('id', 1)->delete();
 ```
 
+#### `increment(string $column, int $step = 1)` / `decrement(string $column, int $step = 1)`
+Adds to (or subtracts from) a column **in the database, in one statement**, and returns the number
+of rows changed.
+
+```php
+DB::table('posts')->where('id', 1)->increment('views');       // 1
+DB::table('posts')->where('id', 1)->increment('views', 10);
+DB::table('posts')->where('id', 1)->decrement('stock');
+```
+
+Use these rather than reading a value, adding to it in PHP, and writing it back. Two requests that
+read `views = 5` at the same time both write `6`, and one view is lost; `increment()` has the
+database do the arithmetic, so both land and the column reaches `7`.
+
+The return value is a row count, not a success flag, which is what lets you tell an increment that
+landed from one whose row was already gone:
+
+```php
+if (DB::table('posts')->where('id', $id)->increment('views') === 0) {
+    // no such post — or the column was NULL (see below)
+}
+```
+
+> **A NULL column is not incremented.** `NULL + 1` is `NULL` in SQL, so the row matches, nothing
+> changes, and you get `0` back. Give counter columns a `NOT NULL DEFAULT 0`.
+
+A `$step` of `0` is a no-op and reports `0`. A negative `$step` is allowed and reverses the
+direction, so `increment('stock', -1)` and `decrement('stock')` are the same statement.
+
 ---
 
 ### Query Filters
@@ -247,7 +276,7 @@ DB::table('salaries')->max('amount');
 DB::table('salaries')->min('amount');
 ```
 
-Further aggregates include `sum`, `group_concat`, `var_pop`, `stddev`, `bit_and`, `bit_or`, and `bit_xor`, along with `increment(column, step)` / `decrement(column, step)` for atomic counter updates.
+Further aggregates include `sum`, `group_concat`, `var_pop`, `stddev`, `bit_and`, `bit_or`, and `bit_xor`. (`increment()` / `decrement()` are writes, not aggregates — see [CRUD Operations](#crud-operations).)
 
 > These are available on **both** builders — `DB::table('users')->count()` and `User::count()` alike, and they respect any `where()` you have already applied.
 

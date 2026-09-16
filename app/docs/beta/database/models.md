@@ -256,7 +256,18 @@ $max = User::max('column');
 $min = User::min('column');
 ```
 
-Additional aggregates are available: `sum`, `group_concat`, `var_pop`, `stddev`, `bit_and`, `bit_or`, and `bit_xor`. Use `increment('column', $step)` / `decrement('column', $step)` for atomic counter updates.
+Additional aggregates are available: `sum`, `group_concat`, `var_pop`, `stddev`, `bit_and`, `bit_or`, and `bit_xor`.
+
+### Atomic counters
+
+`increment()` and `decrement()` add to a column in the database, in one statement, and return the number of rows changed — the same contract as the [query builder's](query-builder#crud-operations), including that a `NULL` column is not incremented and reports `0`.
+
+```php
+User::where('id', 1)->increment('login_count');   // 1
+User::where('id', 1)->decrement('credits', 5);
+```
+
+Reach for these instead of reading a value, changing it in PHP and saving it back — two concurrent requests doing that lose one of the two updates.
 
 ---
 
