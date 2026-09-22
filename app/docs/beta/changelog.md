@@ -262,6 +262,17 @@ in the repo.
 
 ### Fixed
 
+- **Delayed jobs are no longer offset by your application's timezone.** The queue built its
+  datetimes with `strtotime('now +N seconds UTC')`, which reads the clock *locally* and relabels the
+  reading as UTC instead of converting it. At `Africa/Lagos` a 60-second delay became 3660; at
+  `America/New_York` it became -14340, so a job fell due before it was queued. The reservation guard
+  was hit harder: east of Greenwich its cutoff landed in the future, so a job another worker had
+  just reserved looked abandoned — **the double-run protection from the previous release did not
+  hold outside UTC**. Update if you run outside UTC.
+- **The queue no longer mistakes a table in another database for its own.** Its existence check
+  spanned every schema on the server, so a `jobs` table in a sibling database meant creation was
+  skipped and the next query failed against a table that did not exist. A regression from the
+  previous release.
 - **The queue now uses your configured database connection, and honours its port.** `dispatch()`
   assembled its DSN by hand and never wrote a port, so a database on anything but 3306 was silently
   not the one your app was using — with a second engine beside an older one, the new credentials
