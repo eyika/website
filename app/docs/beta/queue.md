@@ -8,7 +8,7 @@ Under the hood the queue is a single table of serialized job payloads. Dispatchi
 
 This page is usage-focused — how to configure, dispatch, work, and monitor jobs. For the full mechanics of `ShouldQueue`, `PendingDispatch`, and every way a job's lifecycle can go wrong, see [Custom Queued Jobs](extending/jobs).
 
-> **Scope note.** `config/queue.php` looks like a full multi-driver config (`sync`/`database`/`redis`/`beanstalkd`/`sqs`), and the storage engine (`Job_Queue`) does have code paths for `mysql`, `sqlite`, and `beanstalkd`. But the code that actually dispatches and works jobs (`ShouldQueue` and `JobRunner`) is hardcoded to **MySQL** regardless of what `config('queue.default')` says. Treat MySQL as the only supported path today; the rest of this page calls out where the config file diverges from reality.
+> **Scope note.** `config/queue.php` looks like a full multi-driver config (`sync`/`database`/`redis`/`beanstalkd`/`sqs`), and it is still **not read anywhere** — there is no `Queue` manager resolving `'default'` to a driver, so `QUEUE_CONNECTION` changes nothing. What the queue does follow is your **database** configuration: it runs on the connection `database.default` names, whatever its driver. `mysql`, `sqlite`, `pgsql` and `sqlsrv` are supported; `redis` and `sqs` are not, and `beanstalkd` exists in the storage engine but nothing wires it up. The rest of this page calls out where the config file diverges from reality.
 
 ## Table of Contents
 
@@ -35,16 +35,21 @@ This page is usage-focused — how to configure, dispatch, work, and monitor job
 
 There is a `config/queue.php`, but it is **not read anywhere in the framework today**. Nothing in `Job_Queue`, `ShouldQueue`, `PendingDispatch`, or `JobRunner` calls `config('queue.*')` — there is no `Queue` facade or manager that resolves `'default'` to a driver. The real dispatch/worker path reuses your existing database configuration instead:
 
-- The worker (`JobRunner`) reads `config('database.connections.mysql.*')` (driver, host, database, username, password, port, charset).
-- The dispatch helpers (`ShouldQueue::init()` / `ShouldQueue::dispatch()`, and therefore the global `dispatch()` helper too) read the `DB_DATABASE`, `DB_HOST`, `DB_USERNAME`, and `DB_PASSWORD` env variables directly.
+Dispatching and working both go through `QueueConnector`, which builds the connection named by `config('database.default')` exactly the way the ORM builds its own — port, charset and the connection's configured PDO options included.
 
-Both connect to the same MySQL database and use:
+> **Changed in beta.** The dispatcher and the worker used to assemble their own DSNs, and neither wrote a **port**. A database on anything but 3306 was silently not the one the application was using — and with a second engine running beside an older one, the new credentials reached the old host, which answers *access denied*. The dispatcher also read `DB_*` through `env()` rather than `config()`, so an app that configured its database in `config/database.php` with no `.env` got a DSN of empty strings. Both now read the same configured connection, so they cannot disagree about where the queue lives.
+
+Both sides connect to the same database and use:
 
 - **Table:** `jobs` (the pending-job table).
 - **Failed table:** `failed_jobs` (rows that exhausted their attempts).
 - **Pipeline:** `default` (the queue name — the framework calls a queue a *pipeline*).
 
-You do not need to create these tables by hand — `Job_Queue` creates `jobs` and `failed_jobs` automatically on first use if they don't already exist. Payloads are stored compressed (MySQL `COMPRESS()`/`UNCOMPRESS()`) because `use_compression` defaults to `true`.
+You do not need to create these tables by hand — `Job_Queue` creates `jobs` and `failed_jobs` automatically on first use if they don't already exist, using DDL for your driver.
+
+On MySQL, payloads are stored compressed (`COMPRESS()`/`UNCOMPRESS()`) because `use_compression` defaults to `true`. Other drivers have no such function and store payloads as-is.
+
+> **Do not change `use_compression` on a queue that has rows in it.** A payload written compressed is readable only through `UNCOMPRESS()`, so flipping the flag strands every job already queued. Drain the queue first.
 
 Payloads are HMAC-signed with `app.key` before storage and verified before they are unserialized, so make sure `APP_KEY` is set (`php artisan key:generate`) — signing/verifying throws if it's empty.
 
@@ -109,19 +114,19 @@ Payloads are HMAC-signed with `app.key` before storage and verified before they 
 
 The file's own comment spells out its status: `Drivers: "sync"` is the only one implemented; `database`, `beanstalkd`, `sqs`, and `redis` are `TODO`. Changing `QUEUE_CONNECTION` to `redis`, `sqs`, `beanstalkd`, or `database` in your `.env` has **no effect** on how jobs run — there is no code that reads `'default'` and switches drivers.
 
-> If you're evaluating Atom's queue for production use today, don't plan around `redis`/`sqs`/`beanstalkd` yet. The `Job_Queue` storage class already has a `QUEUE_TYPE_BEANSTALKD` code path (see below), but nothing in `ShouldQueue` or `JobRunner` constructs a `Job_Queue` with anything other than `Job_Queue::QUEUE_TYPE_MYSQL`.
+> If you're evaluating Atom's queue for production use today, don't plan around `redis`/`sqs` at all, and don't plan around `beanstalkd` yet — the `Job_Queue` storage class has a `QUEUE_TYPE_BEANSTALKD` code path (see below), but nothing wires it up. The SQL drivers *are* wired up: the queue follows `database.default`.
 
 ### What Actually Runs
 
 Independently of `config/queue.php`, the dispatch/worker path is fixed to:
 
-- **Storage engine:** `Job_Queue`, always constructed with `Job_Queue::QUEUE_TYPE_MYSQL`.
-- **Connection:** a plain `PDO` MySQL connection — built from env vars on the dispatch side, from `config('database.connections.mysql.*')` on the worker side.
+- **Storage engine:** `Job_Queue`, constructed with the driver of your default database connection.
+- **Connection:** a `PDO` handle for `config('database.default')`, built by `QueueConnector` through `Connection::makePdo()` — the same DSN, charset and options the ORM uses.
 - **Table / failed table:** `jobs` / `failed_jobs`, auto-created if missing.
 - **Pipeline:** `default`, unless you call `->onQueue('name')`.
 - **Compression:** on by default (`use_compression => true`).
 
-`Job_Queue` itself does support `mysql`, `sqlite`, and `beanstalkd` as a `$queue_type` at the storage layer (`selectPipeline()`/`watchPipeline()`/`addJob()` all branch on it), so a `beanstalkd` or `sqlite`-backed queue is buildable by instantiating `Job_Queue` yourself and wiring it in — but that's outside what `ShouldQueue`/`queue:work` do out of the box.
+`Job_Queue` takes its SQL dialect from the connection it is handed rather than from the type it was constructed with, so identifier quoting and `COMPRESS()` follow the real driver even if you pass your own handle to `onConnection()`. A `beanstalkd` queue is still buildable by instantiating `Job_Queue` yourself, but that is outside what `ShouldQueue`/`queue:work` do out of the box.
 
 ---
 
@@ -259,7 +264,7 @@ All three dispatch paths above end up chaining the same options (via `ShouldQueu
 | `delay(int $seconds)` | Seconds to wait before the job becomes available, and doubles as the retry back-off window when the job is later buried without an explicit delay. | `60` |
 | `priority(int $prio)` | Lower number = higher priority (jobs are pulled `ORDER BY priority ASC`). | `1024` |
 | `onQueue(string $pipeline)` | Send the job to a named pipeline instead of `default`. | `default` |
-| `onConnection(PDO\|SQLite3 $conn)` | Override the PDO/SQLite connection the job uses. | env-derived MySQL PDO |
+| `onConnection(PDO\|SQLite3 $conn)` | Override the PDO/SQLite connection the job uses. | the `database.default` connection |
 
 Order doesn't matter — each just mutates state and returns `self`/`$this`, so `->priority(50)->delay(10)` and `->delay(10)->priority(50)` are equivalent.
 
@@ -295,8 +300,8 @@ php artisan queue:work
 
 `queue:work` runs the `JobRunner`, which:
 
-1. Connects to MySQL (`config('database.connections.mysql.*')`) and watches the `default` pipeline.
-2. Loops, pulling the next available job with `getNextJobAndReserve()` — a single query that finds the highest-priority, due (`send_dt <= now`), not-currently-reserved, not-buried job for the pipeline, and marks it reserved.
+1. Connects to the `database.default` connection and watches the `default` pipeline.
+2. Loops, pulling the next available job with `getNextJobAndReserve()` — which **selects** the highest-priority, due (`send_dt <= now`), not-currently-reserved, not-buried job for the pipeline, then **claims** it with a conditional update and checks that it really got it. Two statements, not one: if another worker claimed the row in between, the claim changes nothing and this worker moves to the next candidate instead of running a job it does not hold.
 3. If nothing pending is found, falls back to `getNextBuriedJob()` — buried jobs whose retry time (`time_to_retry_dt`) has arrived.
 4. Verifies the signed payload (`SignedPayload::verify()`), and — if the unserialized object `instanceof QueueInterface` — calls `setJob()`, `setQueue()`, then `handle()`.
 5. When **neither** call finds a job, the loop **exits**. `queue:work` is not a long-lived daemon — it drains the queue and stops.
@@ -307,7 +312,7 @@ Because the worker exits when the queue is empty, you run it on a schedule rathe
 Scheduler::command('queue:work')->everyTwoMinutes();
 ```
 
-> `queue:work` takes no options — the connection, table, and pipeline are all fixed (MySQL / `jobs` / `default`). This is a deliberately small surface; there are no `--queue`, `--tries`, `--timeout`, or `--connection` flags. If you need multiple pipelines drained at different cadences, schedule `queue:work` more or less often — the command itself always watches `default`, so per-pipeline `--queue` selection isn't available.
+> `queue:work` takes no options — the connection, table, and pipeline are all fixed (your default database connection / `jobs` / `default`). This is a deliberately small surface; there are no `--queue`, `--tries`, `--timeout`, or `--connection` flags. If you need multiple pipelines drained at different cadences, schedule `queue:work` more or less often — the command itself always watches `default`, so per-pipeline `--queue` selection isn't available.
 
 > If `handle()` throws an uncaught exception, `JobRunner` buries the job (using its `delay` as the retry window) and **re-throws** — which ends that `queue:work` invocation early. Any jobs still due are picked up on the next scheduled run.
 
@@ -376,10 +381,10 @@ $failures = DB::table('failed_jobs')
 5. **Always resolve the job.** End every path in `handle()` with `delete()`, `bury()`, or `fail()`, otherwise the row lingers reserved and re-runs after its reservation lapses.
 6. **Schedule `queue:work` frequently.** Since the worker drains and exits, a short scheduler interval (e.g. every two minutes) keeps latency low. See [Task Scheduling](scheduling).
 7. **Set `APP_KEY`.** Payload signing/verification requires it; an empty key throws at dispatch and at work time.
-8. **Don't rely on `config('queue.*')` to change behavior yet.** Only MySQL is actually wired up, regardless of `QUEUE_CONNECTION`.
+8. **Don't rely on `config('queue.*')` to change behavior yet.** `QUEUE_CONNECTION` is not read; the queue follows `config('database.default')`.
 
 ---
 
 ## Conclusion
 
-Atom's queue is intentionally compact: a signed payload in a MySQL `jobs` table, a trait that enqueues it, and a `queue:work` command that drains it. Define a job by implementing `QueueInterface` with a `handle()` method, dispatch it with `dispatch(new Job(...))` (or `Job::dispatch()->run()` / `->init()->run()` for finer control), and let a scheduled `queue:work` do the rest — using `delete()`, `bury()`, and `fail()` to steer each job's outcome. For the full mechanics behind every one of these calls, continue to [Custom Queued Jobs](extending/jobs).
+Atom's queue is intentionally compact: a signed payload in a `jobs` table on your own database connection, a trait that enqueues it, and a `queue:work` command that drains it. Define a job by implementing `QueueInterface` with a `handle()` method, dispatch it with `dispatch(new Job(...))` (or `Job::dispatch()->run()` / `->init()->run()` for finer control), and let a scheduled `queue:work` do the rest — using `delete()`, `bury()`, and `fail()` to steer each job's outcome. For the full mechanics behind every one of these calls, continue to [Custom Queued Jobs](extending/jobs).

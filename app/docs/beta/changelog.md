@@ -262,6 +262,21 @@ in the repo.
 
 ### Fixed
 
+- **The queue now uses your configured database connection, and honours its port.** `dispatch()`
+  assembled its DSN by hand and never wrote a port, so a database on anything but 3306 was silently
+  not the one your app was using — with a second engine beside an older one, the new credentials
+  reached the old host and the failure read as *access denied*. Three places hand-rolled that DSN,
+  so the dispatcher and the worker could disagree about where the queue lived; all three dropped the
+  charset and every configured PDO option including `ERRMODE_EXCEPTION`, so failed queue writes were
+  silent. See [Queues](queue#configuration).
+- **The queue runs on any database the framework supports** — `mysql`, `sqlite`, `pgsql`, `sqlsrv`,
+  following `config('database.default')`. Schema is per driver now, and the SQL dialect comes from
+  the connection rather than from a label.
+- **A job can no longer run twice.** Reserving a job selected it and then claimed it
+  unconditionally, so two workers that selected the same row both ran it. The claim is now
+  conditional and checked.
+- **`kickJob()` never worked** — it interpolated an array as its table name and ran `UPDATE Array`.
+  `failJob()` returned an undefined variable on one path. The queue had no tests; it does now.
 - **BREAKING — `increment()` / `decrement()` return the number of rows changed, and no longer report
   failure on success.** `DB::table(...)->increment($col)` read its result backwards, and what it read
   was a `PDOStatement` — an object, so always truthy — while PDO raises on error rather than
