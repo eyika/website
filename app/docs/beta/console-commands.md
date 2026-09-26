@@ -23,6 +23,19 @@ php artisan serve --port=8080
 Atom keeps its own lightweight parser (it does not use Symfony Console). The rules are:
 
 - **Positional arguments** are read by index — the first non-option token is `argument(0)`, the second is `argument(1)`, and so on. Most generators take the class name as `argument(0)`.
+
+> ⚠️ **Flags are not readable off `arguments()`.** `arguments()` returns the raw argv list,
+> numerically indexed — `['--workers=4', 'Widget']` — so `$arguments['workers']` finds nothing.
+> Written as `$arguments['workers'] ?? 32` it is **silent**, and the command runs with the default
+> while appearing to accept the flag. Named options come from `option()`:
+>
+> ```php
+> $workers = $this->option('workers', 4);   // --workers=4
+> $name    = $this->argument(0);            // the first positional token
+> ```
+>
+> A default passes through exactly as written, so `option('workers', 4)` gives you the int `4`, and
+> a flag supplied without a value — `--daemon` — reads as boolean `true`.
 - **Options** are declared in a command's `$signature` inside braces and take these forms:
   - `{--name=}` — a value option, passed as `--name=value`.
   - `{--name}` — a boolean flag, passed as `--name` (its value becomes `true` when present).
@@ -506,7 +519,9 @@ Atom discovers commands from three places when the console boots (via the `Conso
    }
    ```
 
-   Inside `handle()` you have `$this->argument($index)`, `$this->option($name)`, `$this->info()/error()/warn()`, `$this->table($headers, $rows)`, and `$this->call($otherCommand)`.
+   Inside `handle()` you have `$this->argument($index)`, `$this->option($name, $default)`,
+   `$this->line()`, `$this->newLine()`, `$this->info()/error()/warn()`, `$this->table($headers, $rows)`,
+   and `$this->call($otherCommand)`.
 
 3. **Package commands** — commands contributed by installed packages through `ServiceProvider::commands()`.
 
@@ -521,7 +536,28 @@ Artisan::command('random-quote', function () {
 })->purpose('Display an inspiring quote');
 ```
 
-> Naming the closure command `random-quote` makes it the default that runs when you invoke `php artisan` with no arguments. Command output methods are `$this->info()/error()/warn()/warning()/notice()/debug()` (there is no `comment()`); console output is emitted without a log-line prefix, and inline `<fg=…>`/`<options=…>` formatter tags are translated to ANSI by the console colorizer.
+> Naming the closure command `random-quote` makes it the default that runs when you invoke `php artisan` with no arguments.
+
+#### Writing output
+
+`$this->line($message)` prints one plain line, and `$this->newLine($count = 1)` prints blank ones.
+Use them for anything that is *output* rather than an event — a table of numbers, a progress
+summary, a result.
+
+`$this->info()/error()/warn()/warning()/notice()/debug()` are the level-named methods (there is no
+`comment()`). In a console command these are **also** unadorned: console output is formatted as
+`%message%` alone, with no timestamp, channel or level prefix — `error()` differs only by colour.
+So `info()` and `line()` print identically; `line()` simply says what it is for.
+
+Pass `true` as the third argument to send the message to the **log file** instead, where it does get
+the full `[datetime] channel.LEVEL:` treatment:
+
+```php
+$this->line('workers  throughput  p99');   // plain console output
+$this->info('import finished', [], true);  // a real log line, in storage/logs
+```
+
+Inline `<fg=…>` / `<options=…>` formatter tags are translated to ANSI by the console colorizer.
 
 The `Kernel` in `app/Console/Kernel.php` (extending the framework `ConsoleKernel`) is where an application can override command loading and define its `schedule()`.
 

@@ -262,6 +262,9 @@ in the repo.
 
 ### Added
 
+- **`Command::line()` and `Command::newLine()`** — there was no output method named for printing, only
+  the level-named `info()`/`error()`/`warn()`. Console output was never decorated (no timestamp,
+  channel or level); `line()` prints the same thing and says what it is for.
 - **`Blueprint::date()` and `Blueprint::time()`** — a date-only or time-only column had no method,
   so `$table->date('started_on')` failed at migration *run* time in a file that lints clean. Prefer
   `date()` over `dateTime()` for a calendar day: a date stored as a datetime holds a midnight nobody
@@ -277,6 +280,9 @@ in the repo.
 
 ### Fixed
 
+- **`Command::option()` no longer rewrites your default.** Typed `null|string`, it turned
+  `option('workers', 32)` into the string `"32"` and `option('force', false)` into `""`. Defaults now
+  come back as written, and a valueless flag reads as `true`.
 - **The queue claims jobs with a row lock, and no longer mistakes contention for an idle queue.**
   Every worker read the same head row and all but one lost the race; a worker that lost *every* race
   reported the same empty result as an idle one, so the runner slept with jobs pending. The
