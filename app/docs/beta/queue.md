@@ -24,6 +24,10 @@ This page is usage-focused — how to configure, dispatch, work, and monitor job
   - [The Manual init()->run() Flow](#the-manual-init-run-flow)
   - [Fluent Options — Delay, Priority, Pipeline, Connection](#fluent-options--delay-priority-pipeline-connection)
 - [Running the Worker](#running-the-worker)
+- [Concurrency and the reservation lease](#concurrency-and-the-reservation-lease)
+  - [How a job is claimed](#how-a-job-is-claimed)
+  - [The reservation lease](#the-reservation-lease)
+  - [The overlap guard is per host](#the-overlap-guard-is-per-host)
 - [Retrying & Failing](#retrying--failing)
 - [Failed Jobs](#failed-jobs)
 - [Best Practices](#best-practices)
@@ -304,7 +308,7 @@ php artisan queue:work
 2. Loops, pulling the next available job with `getNextJobAndReserve()` — which **selects** the highest-priority, due (`send_dt <= now`), not-currently-reserved, not-buried job for the pipeline, then **claims** it with a conditional update and checks that it really got it. Two statements, not one: if another worker claimed the row in between, the claim changes nothing and this worker moves to the next candidate instead of running a job it does not hold.
 3. If nothing pending is found, falls back to `getNextBuriedJob()` — buried jobs whose retry time (`time_to_retry_dt`) has arrived.
 4. Verifies the signed payload (`SignedPayload::verify()`), and — if the unserialized object `instanceof QueueInterface` — calls `setJob()`, `setQueue()`, then `handle()`.
-5. When **neither** call finds a job, the loop **exits**. `queue:work` is not a long-lived daemon — it drains the queue and stops.
+5. When **neither** call finds a job, what happens depends on the mode. By default the loop **exits** — `queue:work` drains the queue and stops, so you run it on a schedule. With `--daemon` it sleeps and keeps going, which needs a process supervisor rather than a scheduler.
 
 Because the worker exits when the queue is empty, you run it on a schedule rather than as a resident process. The applications in this repo do exactly that via the scheduler (see [Task Scheduling](scheduling)):
 
@@ -312,9 +316,94 @@ Because the worker exits when the queue is empty, you run it on a schedule rathe
 Scheduler::command('queue:work')->everyTwoMinutes();
 ```
 
-> `queue:work` takes no options — the connection, table, and pipeline are all fixed (your default database connection / `jobs` / `default`). This is a deliberately small surface; there are no `--queue`, `--tries`, `--timeout`, or `--connection` flags. If you need multiple pipelines drained at different cadences, schedule `queue:work` more or less often — the command itself always watches `default`, so per-pipeline `--queue` selection isn't available.
+`queue:work` takes seven options:
 
-> If `handle()` throws an uncaught exception, `JobRunner` buries the job (using its `delay` as the retry window) and **re-throws** — which ends that `queue:work` invocation early. Any jobs still due are picked up on the next scheduled run.
+| Option | Effect |
+|---|---|
+| `--daemon` | Stay resident, sleeping when idle, instead of draining and exiting. Needs a supervisor. |
+| `--once` | Run at most one job, then stop. |
+| `--max-jobs=N` | Stop after N jobs, so a backlog cannot make one run overrun the next scheduler tick. |
+| `--max-time=S` | Stop after S seconds, for the same reason. |
+| `--sleep=S` | Seconds to sleep when idle in daemon mode. |
+| `--pipeline=NAME` | Work a pipeline other than `default`. |
+| `--no-overlap-guard` | Disable the `flock` that stops two workers on one pipeline. **Read the concurrency section before using this.** |
+
+The connection and table are not options: the queue uses the connection `config('database.default')`
+names, and the `jobs` / `failed_jobs` tables. There are no `--tries`, `--timeout` or `--connection`
+flags — retries are the job's own business (see [Retrying & Failing](#retrying--failing)), and the
+reservation timeout comes from `config('queue.retry_after')`.
+
+> If `handle()` throws an uncaught exception, `JobRunner` buries the job (using its `delay` as the
+> retry window) and **keeps working** — the failure is isolated to that job so the rest of the batch
+> still drains. The buried job comes back when its retry time arrives. A bury that itself fails is
+> swallowed too, on the principle that nothing about one bad job should stop the worker.
+
+---
+
+## Concurrency and the reservation lease
+
+This is the part you need before you run a second worker, and it was previously not written down
+anywhere.
+
+### How a job is claimed
+
+A worker claims a job in one of two ways, chosen once per connection by asking the server what it
+can do:
+
+- **`SELECT … FOR UPDATE SKIP LOCKED`, inside a transaction** — on MySQL 8.0+, MariaDB 10.6+ and
+  PostgreSQL. The database picks the winner: each worker locks a different row and steps over rows
+  other workers hold, so N workers claim N different jobs.
+- **An optimistic compare-and-swap** — everywhere else (MySQL 5.7, MariaDB below 10.6, SQLite). The
+  worker selects a candidate, then claims it with a conditional `UPDATE` and checks it really won.
+  Correct, but every worker reads the same head row, so N−1 of them lose and re-read.
+
+Both paths order by `priority ASC, id ASC`. Priority wins; `id` breaks the tie, so jobs of equal
+priority — which is all of them, since `priority` defaults to `1024` — come out in the order they
+were queued.
+
+### The reservation lease
+
+A claim is a **lease, not a lock**. It is written as a timestamp, and once it lapses another worker
+may take the job — *even if the first worker is still running it*.
+
+The lease is `config('queue.retry_after')`, defaulting to **60 seconds**. A handler that
+legitimately takes longer must extend its own lease:
+
+```php
+public function handle()
+{
+    foreach ($this->batches() as $batch) {
+        $this->processSlowly($batch);
+        $this->touch();          // push the reservation forward
+    }
+
+    $this->delete();
+}
+```
+
+> Call `touch()` around each slow step, not once at the top. A lease that has already lapsed cannot
+> be reclaimed — another worker may already hold the job.
+
+Raise `retry_after` above your slowest job if you would rather not touch, but understand the
+trade-off: it is also how long a job stays stuck after a worker dies mid-job.
+
+### The overlap guard is per host
+
+`queue:work` takes a `flock` on `storage/framework/queue-work-<pipeline>.lock`, which stops two
+workers on **the same machine** from working one pipeline.
+
+> ⚠️ **A file lock guards nothing between two machines.** Two containers sharing one database each
+> take their own local lock and both proceed. That is supported — the SQL claim is what keeps them
+> from running the same job — but only on a server with `SKIP LOCKED`. On MySQL 5.7 or MariaDB below
+> 10.6 the compare-and-swap path is still correct, just wasteful under contention.
+
+### What is not implemented
+
+- `config/queue.php` is **not read** except for `retry_after`. `QUEUE_CONNECTION` does nothing; the
+  queue follows `config('database.default')`.
+- `failed_jobs` is never pruned, and there are no `queue:failed` / `queue:retry` / `queue:flush`
+  commands. On MySQL the payloads are `COMPRESS()`-ed, so inspect them with
+  `SELECT UNCOMPRESS(payload) FROM failed_jobs`, not a plain `SELECT`.
 
 ---
 

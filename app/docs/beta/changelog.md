@@ -260,8 +260,33 @@ in the repo.
   migrations and `Seeder` classes for the built-in migration engine. See
   [Migrations](database/migrations).
 
+### Added
+
+- **`Blueprint::date()` and `Blueprint::time()`** — a date-only or time-only column had no method,
+  so `$table->date('started_on')` failed at migration *run* time in a file that lints clean. Prefer
+  `date()` over `dateTime()` for a calendar day: a date stored as a datetime holds a midnight nobody
+  meant, and midnight east of UTC is the previous day in UTC.
+- **`Blueprint::unique()` accepts an index name**, like `index()` and `fulltext()` already did. The
+  generated name runs past MySQL's 64-character identifier limit on a wide composite key. See
+  [Migrations](database/migrations).
+- **`skipLocked()` on both query builders** — `SELECT ... FOR UPDATE SKIP LOCKED`, which locks the
+  rows a read returns while stepping over rows another transaction holds. The grammar could only
+  emit a plain `FOR UPDATE`, so no application could express the pattern a work queue needs.
+  Degrades to a plain `FOR UPDATE` where the server cannot do it, so it is always safe to ask for.
+- **`ShouldQueue::touch()`** extends a running job's reservation.
+
 ### Fixed
 
+- **The queue claims jobs with a row lock, and no longer mistakes contention for an idle queue.**
+  Every worker read the same head row and all but one lost the race; a worker that lost *every* race
+  reported the same empty result as an idle one, so the runner slept with jobs pending. The
+  compare-and-swap path remains for servers without `SKIP LOCKED`.
+- **The reservation lease is configurable and renewable** — `config('queue.retry_after')`, and
+  `$this->touch()`. It was hardcoded at 60s and never renewed, so a longer job could be claimed
+  again while still running.
+- **Equal-priority jobs come out in the order they were queued.** Every job defaults to
+  `priority = 1024` and there was no tiebreaker, so the queue had no defined order at all.
+- **The queue's index covers its own claim query**, so an idle queue stops filesorting every due row.
 - **Delayed jobs are no longer offset by your application's timezone.** The queue built its
   datetimes with `strtotime('now +N seconds UTC')`, which reads the clock *locally* and relabels the
   reading as UTC instead of converting it. At `Africa/Lagos` a 60-second delay became 3660; at

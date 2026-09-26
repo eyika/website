@@ -52,20 +52,55 @@ return new class extends Migration
 };
 ```
 
-#### Common `Blueprint` column methods
-- **`id()`**: Adds an auto-incrementing primary key.
-- **`string($name, $length = 255)`**: Adds a `VARCHAR` column.
-- **`integer()` / `bigInteger()` / `unsignedInteger()` / `unsignedBigInteger()`**: Integer columns.
-- **`tinyInteger()` / `smallInteger()` / `mediumInteger()`** (and their `unsigned…` forms): narrower
-  integers, for bounded counters and the like. Widths are per-driver — MySQL emits
-  `TINYINT`/`SMALLINT`/`MEDIUMINT`, Postgres has neither `TINYINT` nor `MEDIUMINT` so it uses
-  `SMALLINT`/`INTEGER`, and SQLite has type affinity rather than widths.
-- **`boolean()`**, **`text()`**, **`json()`**, **`decimal()`**, **`enum()`**, **`timestamp()`**: Additional column types.
-- **`timestamps()`**: Adds `created_at` and `updated_at`.
-- **`softDeletes()`**: Adds a nullable `deleted_at` column.
+#### `Blueprint` column types
+
+A migration fails when it **runs**, not when it is written, so a column type that does not exist is
+a runtime error in a file that lints clean. This is the full list.
+
+| Method | MySQL | PostgreSQL | SQLite |
+|---|---|---|---|
+| `id()` | `BIGINT UNSIGNED AUTO_INCREMENT` | `BIGSERIAL` | `INTEGER PRIMARY KEY AUTOINCREMENT` |
+| `string($name, $length = 255)` | `VARCHAR` | `VARCHAR` | `TEXT` |
+| `char($name, $length)` | `CHAR` | `CHAR` | `TEXT` |
+| `text()` / `mediumText()` / `longText()` | `TEXT` family | `TEXT` | `TEXT` |
+| `integer()` / `bigInteger()` (+ `unsigned…`) | `INT` / `BIGINT` | `INTEGER` / `BIGINT` | `INTEGER` |
+| `tinyInteger()` / `smallInteger()` / `mediumInteger()` (+ `unsigned…`) | `TINYINT` / `SMALLINT` / `MEDIUMINT` | `SMALLINT` / `SMALLINT` / `INTEGER` | `INTEGER` |
+| `decimal()` | `DECIMAL` | `NUMERIC` | `NUMERIC` |
+| `boolean()` | `TINYINT(1)` | `BOOLEAN` | `INTEGER` |
+| `json()` | `JSON` | `JSONB` | `TEXT` |
+| `enum()` | `ENUM` | `VARCHAR` + check | `TEXT` |
+| `date()` | `DATE` | `DATE` | `DATE` |
+| `time()` | `TIME` | `TIME` | `TIME` |
+| `dateTime()` | `DATETIME` | `TIMESTAMP` | `DATETIME` |
+| `timestamp()` | `TIMESTAMP` | `TIMESTAMP` | `DATETIME` |
+| `timestamps()` | adds `created_at` + `updated_at` | | |
+| `softDeletes()` | adds a nullable `deleted_at` | | |
+
+> **Reach for `date()` rather than `dateTime()` for a calendar day.** A date-only value stored as a
+> datetime holds a midnight nobody meant, and midnight in a timezone east of UTC is the *previous
+> day* in UTC. For a pay date or a delivery promise that is a wrong answer, not an imprecise one.
+
+Widths and affinities are per-driver by necessity: Postgres has neither `TINYINT` nor `MEDIUMINT`,
+and SQLite has type *affinity* rather than types at all.
+
+#### Modifiers and keys
 - **Modifiers**: `->nullable()`, `->default($value)`, `->unique()`.
 - **`foreign($col)->references($col)->on($table)->onDelete(...)`**: Foreign-key constraint.
-- **`unique([...])` / `index([...])`**: Composite index/constraint.
+- **`index($cols, $name = null)`**, **`unique($cols, $name = null)`**, **`fulltext()`**,
+  **`spatialIndex()`**: composite indexes and constraints.
+
+> **Name a wide composite key.** The generated name is `unique_<col>_<col>_…_<hash>`, which on four
+> columns runs past **MySQL's 64-character identifier limit** and fails the migration with
+> `1059 Identifier name … is too long`:
+>
+> ```php
+> $table->unique(['cart_id', 'variant_id', 'bundle_id', 'personalisation_key'], 'cart_items_line_unique');
+> ```
+>
+> This one hides: SQLite has no identifier length limit, so a suite running on SQLite stays green,
+> and a database that already has the table never re-runs the migration. The first place it can
+> surface is a from-scratch MySQL migrate — which is a good reason to run migrations on MySQL in CI
+> and not only on SQLite.
 
 #### Schema helpers
 - **`Schema::create($table, $callback)`**: Creates a new table.
