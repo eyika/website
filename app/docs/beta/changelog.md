@@ -286,6 +286,10 @@ in the repo.
 
 ### Fixed
 
+- **A view variable is no longer shadowed by the renderer's own locals.** `extract()` ran in a scope
+  holding the renderer's parameters, and `EXTR_SKIP` means the *caller* loses the collision — so
+  `{{ $file }}` rendered the template's name and `{{ $data }}` rendered the framework's parameter
+  array. Templates now execute in an isolated scope.
 - **Setting a cookie no longer empties the response.** The cookie callback was handed the cookie's
   *name* rather than the cookie, raising a `TypeError` inside `send()` — after any controller
   `try/catch` had returned, and before every other header, so it took the remaining headers and the
