@@ -231,6 +231,24 @@ $page->toArray();     // data + totalRecords/totalPages/recordsPerPage/currentPa
 
 ### Raw Queries
 
+> **`whereRaw()` takes NAMED bindings.** A positional `?` binds nothing, and the error you get back
+> points somewhere else entirely — PDO reports *column index out of range*, which reads as a
+> mismatch between the SELECT list and the result set, i.e. a schema problem, when the fault is one
+> character in a predicate.
+>
+> ```php
+> // Right
+> ->whereRaw("REPLACE(slug, '-', '') = :normalised", ['normalised' => $value])
+>
+> // Refused, immediately and by name
+> ->whereRaw("REPLACE(slug, '-', '') = ?", [$value])
+> ```
+>
+> Positional bindings cannot be supported here: PDO forbids mixing named and positional placeholders
+> in one statement, and every other clause the builder emits is named. Each `:name` you pass is
+> rewritten to a unique internal placeholder, so a raw fragment can never collide with the bindings
+> `where()` generates.
+
 #### `DB::query(string $sql, array $bind = []): array`
 Runs a parameterized `SELECT` and returns an array of associative rows. Bindings are named.
 

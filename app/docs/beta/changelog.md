@@ -262,6 +262,12 @@ in the repo.
 
 ### Added
 
+- **`BaseResponse::getBody()`** — `statusCode` had an accessor and `body` did not, so a middleware
+  had to reflect into every response to post-process a payload.
+- **`datetime` and `date` casts, applied on output**, so a timestamp column can serialise as ISO-8601
+  with an offset. The timezone comes from `database.timezone` (then `app.timezone`, then UTC)
+  because timestamps are written by the database's `NOW()`.
+- **`MailerResponse::successful()` / `failed()` / `throwIfFailed()` and `Mailer::sendOrFail()`.**
 - **`Command::line()` and `Command::newLine()`** — there was no output method named for printing, only
   the level-named `info()`/`error()`/`warn()`. Console output was never decorated (no timestamp,
   channel or level); `line()` prints the same thing and says what it is for.
@@ -280,6 +286,18 @@ in the repo.
 
 ### Fixed
 
+- **Setting a cookie no longer empties the response.** The cookie callback was handed the cookie's
+  *name* rather than the cookie, raising a `TypeError` inside `send()` — after any controller
+  `try/catch` had returned, and before every other header, so it took the remaining headers and the
+  whole body. Any response calling `setCookie()` sent a plausible **200 with an empty body**.
+- **`env()` can see real environment variables.** It read `$_ENV` only, which PHP fills from the
+  process environment only when `variables_order` contains `E` — which stock php.ini files do not.
+  Configuration injected by systemd or Docker was invisible and every `env()` call returned its
+  default. Now `$_ENV`, then `$_SERVER`, then `getenv()`.
+- **`whereRaw()` refuses a positional `?` by name** instead of letting PDO report *column index out
+  of range*, which reads as a schema problem.
+- **A refused email leaves a trace** — the SMTP driver reports failures in its return value rather
+  than throwing, so it now also logs them.
 - **A compiled view that lands empty is no longer cached as valid for ever.** Compiled templates were
   written with `file_put_contents(..., LOCK_EX)`, which excludes other *writers* but not `require`,
   and which truncates before writing — so the artifact passed through a zero-byte state on every

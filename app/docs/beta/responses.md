@@ -226,7 +226,26 @@ return Response::json($data)
 `setHeader(string $key, string $content, int|null $code = null, bool $replace = true): self`
 
 - `$replace` mirrors PHP's `header()` `$replace` argument — pass `false` to add a header alongside an existing one of the same name instead of overwriting it (useful for headers PHP allows to repeat).
-- `$code` optionally forces the HTTP status code as the header is emitted (rarely needed — prefer `status()`).
+- `$code` **sets the response status**, exactly as `status()` would, as a convenience for helpers that build a header and a status together. It no longer rides along with the header itself.
+
+> **Changed in beta.** `$code` used to be replayed into PHP's `header($h, $replace, $code)`, whose
+> third argument *forces* the response code — so whichever coded header happened to be written last
+> decided the status, overwriting what `status()` had been given. A `206` built with a
+> `Content-Type` carrying `STATUS_OK` went out as **200**, with a perfectly correct `Content-Range`
+> beside it. Both now write the same single field, so the last call wins in the order you wrote it.
+
+#### Reading the body back
+
+`getBody(): string` returns the body as it stands, so a middleware can post-process a payload on the
+way out without reflecting into the response:
+
+```php
+$response = $next($request);
+
+return $response->body(
+    $this->stampTimestamps($response->getBody())
+);
+```
 
 ---
 

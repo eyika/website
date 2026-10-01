@@ -48,6 +48,32 @@ class User extends Model
 
 Static calls such as `User::find(...)` are proxied to a fresh builder instance; `User::getBuilder()` returns that instance explicitly if you prefer to build a chain by hand.
 
+### Casts
+
+`casts` maps a column to a native PHP type: `bool`/`boolean`, `int`/`integer`, `float`/`double`,
+`string`, `array`/`json`, `object`, and — applied on **output only** — `datetime` and `date`.
+
+```php
+protected const casts = [
+    'id'         => 'int',
+    'is_active'  => 'boolean',
+    'meta'       => 'array',
+    'created_at' => 'datetime',   // 2026-10-01T07:19:29+00:00 in toArray()/JSON
+    'started_on' => 'date',       // 2026-10-01
+];
+```
+
+The type casts run on **reads and writes** — `fill()` applies them too — which is why `array`/`json`
+values are re-serialised before they reach the writer. `datetime` and `date` are different: they
+shape only what `toArray()` emits, so declaring one can never rewrite a stored value.
+
+> **Which timezone does the offset describe?** Timestamps in this framework are written by the
+> *database* — the query grammar emits SQL `NOW()` — so the stored instant is in the database
+> server's zone, which the framework has no way to discover. Rather than guess, it reads
+> `database.timezone`, falling back to `app.timezone` and then `UTC`. **If your server stores local
+> time, set `database.timezone`** and the emitted offset becomes correct; leave it wrong and you get
+> a confidently-labelled wrong instant, which is worse than a bare one.
+
 ---
 
 ## CRUD Operations

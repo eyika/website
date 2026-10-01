@@ -174,7 +174,30 @@ $response = Mailer::to('user@example.com', 'Jane Doe')
 - **`->buildHtml(string $templateName, array $data = [], ?string $resourcePath = null)`** — render an HTML body from a template. The template is resolved through the Twig-like engine against `config('mail.markdown.paths')` (override with `$resourcePath`), with `$data` exposed to the template.
 - **`->header(string $name, string $value)`** — set a custom message header. Setting the same name twice replaces it.
 - **`->headers(array $headers)`** — set several at once, as `['Name' => 'value']`.
-- **`->send(string $subject, ?string $to = null)`** — deliver the built HTML body. If `$to` is supplied it is added as a recipient before sending. Returns a `MailerResponse`.
+- **`->send(string $subject, ?string $to = null)`** — deliver the built HTML body. If `$to` is supplied it is added as a recipient before sending. Returns a **`MailerResponse`**, not a bool.
+- **`->sendOrFail(string $subject, ?string $to = null)`** — the same, but raises when the provider refuses the message.
+
+> ⚠️ **`send()` returns an object, so `if ($mailer->send($subject))` is always true** — including for
+> a message the server rejected. PHP has no `__toBool`, so the type cannot protect that call; check
+> the result explicitly:
+>
+> ```php
+> $response = Mailer::to($user->email)->send('Reset your password');
+>
+> if ($response->failed()) {
+>     logger()->error('reset mail refused', ['reason' => $response->error]);
+>     return false;
+> }
+> ```
+>
+> **And a `try/catch` around `send()` is dead code.** The drivers catch the provider's exception
+> themselves and report it in `->error` / `->exception` rather than letting it propagate. Use
+> `sendOrFail()`, or `$response->throwIfFailed()`, if you want it thrown.
+>
+> This matters most in a queued job whose retry keys off the result: a refused message that reports
+> success is deleted from the queue on its first attempt — no bury, no failed row, and nothing to
+> say the mail never went. The driver logs the provider's reason either way, so the failure is
+> visible in `storage/logs` even when the caller ignores it.
 - **`Mailer::init(?string $driver = null, ?array $config = null)`** — explicitly select a mailer/driver (or pass an ad-hoc config) instead of the configured default.
 
 > The `Mailer` keeps a **single static driver instance** for the lifetime of the PHP process, so `to()`, `from()`, `replyTo()`, and `buildHtml()` all operate on the same underlying message. After each `send()`, the SMTP driver clears its recipients, reply-tos and custom headers so a subsequent send within the same process (for example inside a `queue:work` loop) does not accumulate previous recipients — or carry one message's headers onto the next.

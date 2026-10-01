@@ -24,6 +24,17 @@ DB_PASSWORD=your_password
 
 ### Accessing Environment Variables
 
+`env()` reads, in order: **`$_ENV`**, then **`$_SERVER`**, then **`getenv()`**. A `.env` entry
+therefore wins over a variable inherited from the shell, while configuration injected by the
+platform — systemd `Environment=`, `docker run -e`, a container orchestrator — is still visible.
+
+> **If you deploy without a `.env` file, this is the part to know.** PHP only populates `$_ENV` from
+> the real process environment when `variables_order` contains `E`, and both stock `php.ini-production`
+> and `php.ini-development` ship `GPCS`. Earlier versions read `$_ENV` alone, so a container-injected
+> environment was invisible and **every `env()` call returned its default** — wrong database, absent
+> `APP_KEY`, no credentials, and nothing raised to say so. If you are on an older build, ship a
+> `.env` or add `E` to `variables_order`.
+
 You can access these variables in your code using the `env()` helper function:
 
 ```php
