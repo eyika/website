@@ -280,6 +280,16 @@ in the repo.
 
 ### Fixed
 
+- **A compiled view that lands empty is no longer cached as valid for ever.** Compiled templates were
+  written with `file_put_contents(..., LOCK_EX)`, which excludes other *writers* but not `require`,
+  and which truncates before writing — so the artifact passed through a zero-byte state on every
+  recompile. The staleness check looked only at existence and mtime, so a truncated file counted as
+  fresh permanently and the render returned an empty string with nothing raised. In production that
+  is a correctly-addressed email with **no body**, since the subject is set separately. Compiled
+  templates are now written by atomic `rename()`, and an empty artifact is treated as stale so the
+  cache heals.
+- **A view edited in the same second as its last compile is no longer missed** — `filemtime()` has
+  one-second resolution and the check used a strict `>`.
 - **`Command::option()` no longer rewrites your default.** Typed `null|string`, it turned
   `option('workers', 32)` into the string `"32"` and `option('force', false)` into `""`. Defaults now
   come back as written, and a valueless flag reads as `true`.
