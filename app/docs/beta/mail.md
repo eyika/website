@@ -84,7 +84,7 @@ The `transport` value maps to one of the following driver classes in `Eyika\Atom
 |-------------|---------------------|-------|
 | `smtp`      | `SmtpDriver`        | Sends via **PHPMailer** over SMTP. The primary, fully-exercised driver. |
 | `sendmail`  | `SendmailDriver`    | Local `sendmail` binary. |
-| `ses`       | `SesDriver`         | Amazon SES. |
+| `ses`       | `SesDriver`         | Amazon SES over the **v2** `SendEmail` API (requires `aws/aws-sdk-php`). Config keys: `region`, `key`, `secret`, `from`, and an optional `configuration_set`. Carries custom headers (`List-Unsubscribe`) and configuration sets — see *Bulk mail* below. |
 | `mailgun`   | `MailgunDriver`     | Mailgun HTTP API (requires the `mailgun/mailgun-php` SDK + `key`/`domain` config). |
 | `postmark`  | `PostmarkDriver`    | Postmark HTTP API. |
 | `log`       | `LogDriver`         | Writes each message (recipients, subject, body) to a log file via Monolog instead of sending. Ideal for local dev. |
@@ -218,7 +218,7 @@ Mailer::to($subscriber->email)
 
 The one-click URL must accept a `POST` and unsubscribe without further interaction — a link that opens a confirmation page does not qualify.
 
-> **Driver support.** SMTP, Sendmail, Mailgun and Postmark carry arbitrary headers natively. **The SES driver cannot** — the v1 `SendEmail` API has no field for them (only `SendRawEmail`, which takes a pre-built MIME message, does). Rather than sending without the header, that driver **fails the send** and returns a `MailerResponse` explaining why, since a silently dropped compliance header would only surface later as throttling. Use another transport for bulk mail.
+> **Driver support.** Every bundled driver carries arbitrary headers — SMTP, Sendmail, Mailgun and Postmark natively, and the SES driver via the **SES v2** `SendEmail` API (`Content.Simple.Message.Headers`), which is why it runs on v2 rather than v1, whose `SendEmail` action had no field for them. SES reserves a few header names it sets itself (From, To, Subject, …) and rejects those in the list, so a disallowed header fails loudly at send time rather than being dropped. SES v2 also honours a **configuration set** when you set the `configuration_set` key on the `ses` mailer config, so event publishing, dedicated IPs and suppression lists apply to the send.
 
 ### The Response
 

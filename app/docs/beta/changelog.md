@@ -8,6 +8,16 @@ in the repo.
 
 ## Unreleased (beta)
 
+### Changed
+
+- **The SES mail driver now runs on the SES v2 API, so it can send custom headers.** It was on SES
+  v1, whose `SendEmail` action has no field for arbitrary headers — so it *refused* any send
+  carrying `List-Unsubscribe`, the bulk-mail header Gmail and Yahoo have required since February
+  2024. It now carries custom headers in the v2 `Content.Simple.Message.Headers` field, and honours
+  an optional `configuration_set` key on the `ses` mailer config (for SES event publishing,
+  dedicated IPs and suppression lists). No change for callers; the same `ses:SendEmail` IAM
+  permission applies on v2.
+
 ### Security
 
 - **SVG is now served with a script-neutralising CSP.** `nosniff` cannot help SVG: `image/svg+xml` is
