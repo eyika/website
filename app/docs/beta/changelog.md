@@ -296,6 +296,17 @@ in the repo.
 
 ### Fixed
 
+- **Querying an encrypted column by value now works — including logging in.** When a model lists a
+  column in `const encrypted`, the framework keeps a keyed-HMAC `<col>_hash` replica beside it so the
+  column stays queryable (the ciphertext itself can never be compared), and rewrites an equality
+  filter onto that replica. But `where()` qualifies a column to `table.column` for join
+  disambiguation, and the rewrite only matched the bare column name — so `where('email', …)` was
+  never redirected to `email_hash`, compared the ciphertext against your plaintext, and matched
+  nothing. That broke every `where()`-based read, update and delete on an encrypted column, and most
+  visibly the Eloquent auth driver, whose `where('email', …)->first()` meant **every login failed**
+  for a user who existed. (`findBy()` was unaffected.) Nothing to change in your app — if you added a
+  custom auth driver to work around this, you can remove it.
+
 - **A view variable is no longer shadowed by the renderer's own locals.** `extract()` ran in a scope
   holding the renderer's parameters, and `EXTR_SKIP` means the *caller* loses the collision — so
   `{{ $file }}` rendered the template's name and `{{ $data }}` rendered the framework's parameter
